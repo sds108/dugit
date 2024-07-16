@@ -1,0 +1,5 @@
+add_library(Tests STATIC tests.cpp tests.h)
+set_target_properties(Tests PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(Tests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(Tests PUBLIC Include)
+target_link_libraries(Tests PUBLIC Git)
