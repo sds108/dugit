@@ -9,6 +9,7 @@
 #include <ctime>
 #include <filesystem>
 #include <sstream>
+#include <algorithm>
 
 // Special custom includes and defines
 #ifndef nullstr
