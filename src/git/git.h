@@ -66,6 +66,9 @@ struct Repository {
 
   // Destructor Sequence
   ~Repository();
+  
+  // Initialize Repository Sequence
+  bool initialize();
 };
 
 struct Remote {
@@ -118,21 +121,6 @@ struct Branch {
   ~Branch();
 };
 
-// Run command and get output
-std::string execute_with_output(const std::string& command);
-std::string execute_with_output(const std::vector<std::string>& commands);
-
-// Single line out
-std::string execute_with_output_single_line(const std::string& command);
-std::string execute_with_output_single_line(const std::vector<std::string>& commands);
-
-// Multi line out
-std::vector<std::string> execute_with_output_multi_line(const std::string& command);
-std::vector<std::string> execute_with_output_multi_line(const std::vector<std::string>& commands);
-
-// Get lines from string
-std::vector<std::string> get_lines_from_string(const std::string& s);
-
 // Main controller function
 void parse_input(const std::string& input);
 
@@ -160,12 +148,22 @@ std::string get_superproject_working_tree_path();
 // Get Top Level path
 std::string get_toplevel_path();
 
-// Trim front of a string
-bool string_trim_front(std::string& s, const unsigned long long len);
-bool strings_trim_fronts(std::vector<std::string>& lines, const unsigned long long len);
+// Get Top Level path manually
+std::string get_superproject_path_manually();
 
-// Trim rear of a string
-bool string_trim_rear(std::string& s, const unsigned long long len);
-bool strings_trim_rears(std::vector<std::string>& lines, const unsigned long long len);
+// Return if currently inside working tree
+bool is_inside_working_tree(const std::string& path);
+
+// Get .dugit path
+std::string get_dugit_path();
+
+// create .dugit
+bool create_dugit_directory(const std::string& path);
+
+// Add .dugit to .gitignore
+bool add_dugit_to_gitignore(const std::string& path);
+
+// Check if .dugit is already in the .gitignore
+bool check_dugit_in_gitignore(const std::string& path);
 
 #endif

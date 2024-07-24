@@ -1,115 +1,5 @@
 #include "git.h"
 
-// Run command and get output, return NULL if any error
-std::string execute_with_output(const std::string& command) {
-  FILE* pipe = popen(command.c_str(), "r");
-  if (!pipe) {
-    perror("popen");
-    return nullstr;
-  }
-
-  std::ostringstream oss;
-  char buffer[4096];
-  while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-    oss << buffer;
-  }
-
-  int exitCode = pclose(pipe);
-  if (exitCode == -1) {
-    perror("pclose");
-    return nullstr;
-  }
-
-  // Filter out special characters
-  std::string oss_str = oss.str();
-  std::string output;
-
-  for (const auto& c : oss_str) {
-    if (c < 32 && c != 10) continue;
-    else output += c;
-  }
-
-  return output;
-}
-
-std::string execute_with_output(const std::vector<std::string>& commands) {
-  // Concatenate the command vector
-  std::string concatenated;
-
-  for (const auto& command : commands) {
-    concatenated += command + ' ';
-  }
-
-  return execute_with_output(concatenated);
-}
-
-// Single line out
-std::string execute_with_output_single_line (const std::string& command) {
-  /*
-    A lot of functions expect a single
-    line output, for which the extraction
-    process looks the same.
-  */
-
-  // Get output
-  std::string command_out = execute_with_output(command);
-
-  // If we receive a nullstr, return nullstr
-  if (command_out == nullstr)
-    return nullstr;
-
-  // Delimit string
-  std::vector<std::string> lines = get_lines_from_string(command_out);
-
-  if (lines.empty())
-    return nullstr;
-
-  return lines.front();
-}
-
-std::string execute_with_output_single_line (const std::vector<std::string>& commands) {
-  // Concatenate the command vector
-  std::string concatenated;
-
-  for (const auto& command : commands) {
-    concatenated += command + ' ';
-  }
-
-  return execute_with_output_single_line(concatenated);
-}
-
-// Multi line out
-std::vector<std::string> execute_with_output_multi_line(const std::string& command) {
-  std::string command_out = execute_with_output(command);
-
-  // If we receive a nullstr, return an empty vector
-  if (command_out == nullstr)
-    return std::vector<std::string>();
-
-  return get_lines_from_string(command_out);
-}
-
-std::vector<std::string> execute_with_output_multi_line (const std::vector<std::string>& commands) {
-  // Concatenate the command vector
-  std::string concatenated;
-
-  for (const auto& command : commands) {
-    concatenated += command + ' ';
-  }
-
-  return execute_with_output_multi_line(concatenated);
-}
-
-// Extract lines from string
-std::vector<std::string> get_lines_from_string(const std::string& s) {
-  std::stringstream ss(s);
-  std::vector<std::string> lines;
-  std::string line;
-  while (std::getline(ss, line, '\n')) {
-    lines.push_back(line);
-  } return lines;
-}
-
 // Get git version
 std::string get_git_version() {
   /*
@@ -125,17 +15,13 @@ std::string get_git_version() {
   std::string command = "git -v";
 
   // Get the git version
-  std::string git_version = execute_with_output(command);
+  std::string git_version = execute_with_output_single_line(command);
 
   // Extract the version number
   if (git_version == nullstr)
     return nullstr;
 
-  std::vector<std::string> git_version_lines = get_lines_from_string(git_version);
-  if (git_version_lines.size() != 1)
-    return nullstr;
-
-  std::stringstream ss(git_version_lines.front());
+  std::stringstream ss(git_version);
   std::vector<std::string> words;
   std::string word;
   while (std::getline(ss, word, ' ')) {
@@ -302,56 +188,88 @@ std::string get_toplevel_path () {
   return execute_with_output_single_line(command);  
 }
 
-// Trim front of a string
-bool string_trim_front(std::string& s, const unsigned long long len) {
-  if (s.length() < len) {
-    perror("string_trim_front(): Trying to trim line shorter than expected.");
+// Get Super Project Top Level path manually
+std::string get_superproject_path_manually () {
+  /*
+    We can get the toplevel path of the
+    super project by recursively going 
+    through the directories starting
+    from the current working directory.
+  */
+
+  std::string current_path = get_cwd();
+  std::string last_valid_path = nullstr;
+
+  while (is_inside_working_tree(current_path)) {
+    last_valid_path = current_path;
+    current_path = execute_with_output_single_line(
+      std::vector<std::string>(
+        {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
+      )
+    );
+  }
+
+  return last_valid_path;
+}
+
+// Return if currently inside working tree
+bool is_inside_working_tree (const std::string& path) {
+  /*
+    We can check if we are currently
+    inside a working tree by using,
+    git rev-parse --is-inside-work-tree
+  */
+
+  std::vector<std::string> commands(
+    {"cd", path, "&&", "git rev-parse --is-inside-work-tree"}
+  );
+
+  std::string output = execute_with_output_single_line(commands);
+
+  if (output == "true")
+    return true;
+  else return false;
+}
+
+// Get .dugit path
+std::string get_dugit_path () {
+  /*
+    The .dugit folder should be
+    found in the super project
+    directory.
+  */
+
+  std::string superproject_path = get_superproject_path_manually();
+
+  if (superproject_path == nullstr)
+    return nullstr;
+
+  /*
+    Check if .dugit exists
+    in the superproject path.
+  */
+
+  superproject_path += "/.dugit";
+
+  if (dir_exists(superproject_path))
+    return superproject_path;
+  else return nullstr;
+}
+
+// create .dugit
+bool create_dugit_directory (const std::string& path) {
+  return create_dir(path, ".dugit");
+}
+
+// Add .dugit to .gitignore
+bool add_dugit_to_gitignore (const std::string& path) {
+  return append_line_to_file(path + "/.gitignore", ".dugit/");
+}
+
+// Check if .dugit is already in the .gitignore
+bool check_dugit_in_gitignore (const std::string& path) {
+  if (!file_exists(path))
     return false;
-  }
-  
-  s.erase(0, len);
-  return true;
-}
 
-bool strings_trim_fronts(std::vector<std::string>& lines, const unsigned long long len) {
-  // Check that all lines are long enough
-  for (const auto& line : lines) {
-    if (line.length() < len) {
-      perror("strings_trim_fronts(): Trying to trim line shorter than expected.");
-      return false;
-    }
-  }
-
-  // Trim characters from the front of each line
-  for (auto& line : lines)
-    string_trim_front(line, len);
-
-  return true;
-}
-
-// Trim rear of a string
-bool string_trim_rear(std::string& s, const unsigned long long len) {
-  if (s.length() < len) {
-    perror("string_trim_rear(): Trying to trim line shorter than expected.");
-    return false;
-  }
-  
-  s.erase(s.length() - (len + 1), len);
-  return true;
-}
-
-bool strings_trim_rears(std::vector<std::string>& lines, const unsigned long long len) {
-  // Check that all lines are long enough
-  for (const auto& line : lines) {
-    if (line.length() < len) {
-      perror("strings_trim_rears(): Trying to trim line shorter than expected.");
-      return false;
-    }
-  }
-
-  // Trim characters from the rear of each line
-  for (auto& line : lines)
-    string_trim_rear(line, len);
-
-  return true;
+  return line_in_file_exists(path + "/.gitignore", ".dugit/");
 }

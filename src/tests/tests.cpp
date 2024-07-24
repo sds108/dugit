@@ -2,6 +2,8 @@
 #include "tests.h"
 
 void run_tests () {
+  t_get_cwd();
+  t_get_exec_path();
   t_get_git_version();
   t_get_remote_names();
   t_get_remote_links();
@@ -10,9 +12,39 @@ void run_tests () {
   t_get_current_branch_name();
   t_get_superproject_working_tree_path();
   t_get_toplevel_path();
+  t_get_superproject_path_manually();
+  t_get_dugit_path();
+  t_create_dugit_directory();
+  t_add_dugit_to_gitignore();
 }
 
 // Definitions
+void t_get_cwd () {
+  std::string cwd = get_cwd();
+
+  if (cwd == nullstr)
+    std::cout << "t_get_cwd: NULL\n";
+  else {
+    std::cout << "t_get_cwd: " << cwd << " => ";
+    for (const auto& c : cwd) {
+      std::cout << int(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
+void t_get_exec_path () {
+  std::string git_exec_path = get_executable_path("git");
+
+  if (git_exec_path == nullstr)
+    std::cout << "t_get_exec_path: NULL\n";
+  else {
+    std::cout << "t_get_exec_path: " << git_exec_path << " => ";
+    for (const auto& c : git_exec_path) {
+      std::cout << int(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
 void t_get_git_version () {
   std::string git_version = get_git_version();
 
@@ -153,5 +185,60 @@ void t_get_toplevel_path () {
     for (const auto& c : toplevel_path) {
       std::cout << int(c) << ", ";
     } std::cout << std::endl;
+  }
+}
+
+void t_get_superproject_path_manually () {
+  std::string superproject_working_tree_path = get_superproject_path_manually();
+
+  if (superproject_working_tree_path == nullstr)
+    std::cout << "t_get_superproject_path_manually: NULL\n";
+   else {
+    std::cout << "t_get_superproject_path_manually: " << superproject_working_tree_path << " => ";
+    for (const auto& c : superproject_working_tree_path) {
+      std::cout << int(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
+void t_get_dugit_path() {
+  std::string dugit_path = get_dugit_path();
+
+  if (dugit_path == nullstr)
+    std::cout << "t_get_dugit_path: NULL\n";
+   else {
+    std::cout << "t_get_dugit_path: " << dugit_path << " => ";
+    for (const auto& c : dugit_path) {
+      std::cout << int(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
+void t_create_dugit_directory () {
+  std::string dugit_path = get_dugit_path();
+  std::string superproject_working_tree_path = get_superproject_path_manually();
+
+  if (dugit_path == nullstr) {
+    if (superproject_working_tree_path == nullstr)
+      std::cout << "t_create_dugit_directory: NULL\n";
+    else {
+      if (create_dugit_directory(superproject_working_tree_path))
+        std::cout << "t_create_dugit_directory: " << get_dugit_path();
+      else std::cout << "t_create_dugit_directory: NULL\n";
+    }
+  }
+}
+
+void t_add_dugit_to_gitignore () {
+  std::string superproject_working_tree_path = get_superproject_path_manually();
+
+  if (superproject_working_tree_path == nullstr)
+    std::cout << "t_add_dugit_to_gitignore: NULL\n";
+  else {
+    if (!check_dugit_in_gitignore(superproject_working_tree_path)) {
+      if (add_dugit_to_gitignore(superproject_working_tree_path))
+        std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
+      else std::cout << "t_add_dugit_to_gitignore: NULL\n";
+    } else std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
   }
 }
