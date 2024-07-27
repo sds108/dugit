@@ -8,7 +8,7 @@ std::string get_cwd () {
 }
 
 // Run command
-int execute_without_output (const std::string& command) {
+uint32_t execute_without_output (const std::string& command) {
   FILE* pipe = popen(command.c_str(), "r");
   if (!pipe) {
     perror("popen");
@@ -24,7 +24,7 @@ int execute_without_output (const std::string& command) {
   return 0;
 }
 
-int execute_without_output (const std::vector<std::string>& commands) {
+uint32_t execute_without_output (const std::vector<std::string>& commands) {
   // Concatenate the command vector
   std::string concatenated;
 
@@ -241,39 +241,126 @@ bool create_dir (const std::string& path, const std::string& name) {
 
 // Check if a file exists
 bool file_exists (const std::string& path) {
-  std::ifstream infile(path);
+  std::ifstream file(path);
 
-  if (infile.good())
+  if (file.good())
     return true;
   else return false;
 }
 
 // Check if line exists in file
 bool line_in_file_exists (const std::string& path, const std::string& s) {
-  std::ifstream infile(path);
-    std::string line;
+  std::ifstream file(path);
+  std::string line;
 
-  if (infile.is_open()) {
-    while (std::getline(infile, line)) {
+  if (file.is_open()) {
+    while (std::getline(file, line)) {
       if (line == s)
         return true;
-    } infile.close();
-  } else perror("ifstream open fail");
+    } file.close();
+  } else perror("Failed to open file.\n");
 
   return false;
 }
 
 // Append line to a file
 bool append_line_to_file (const std::string& path, const std::string& s) {
+  std::ifstream infile(path);
+  std::string line;
+  std::string last_line;
+
+  if (infile.is_open()) {
+    while (std::getline(infile, line))
+      last_line = line;
+    infile.close();
+  } else perror("Failed to open file.\n");
+
   std::ofstream file;
   file.open(path, std::ios::app);
 
   if (file.is_open()) {
-      file << std::endl << s;
-      file.close();
-      return true;
-  }
+    if (!last_line.empty())
+      file << std::endl;
+    file << s;
+    file.close();
+    return true;
+  } else perror("Failed to open file.\n");
   
   return false;
 }
 
+// Return position of line in file (return UINT_MAX otherwise)
+uint32_t line_pos_in_file (const std::string& path, const std::string& s) {
+  std::ifstream file(path);
+  std::string line;
+  uint32_t pos = 0;
+
+  if (file.is_open()) {
+    while (std::getline(file, line)) {
+      if (line == s) return pos;
+      pos++;
+    } file.close();
+  } else perror("Failed to open file.\n");
+
+  return UINT32_MAX;
+}
+
+// Lock file using flock
+bool lock_file (const std::string& path) {
+  int file_descriptor = open(path.c_str(), O_CREAT | O_RDWR, 0666);
+
+  if (file_descriptor == -1) {
+    perror("Failed to open file.\n");
+    return false;
+  }
+
+  if (flock(file_descriptor, LOCK_EX) == -1) {
+    perror("Failed to lock file.\n");
+    close(file_descriptor);
+    return false;
+  }
+
+  return true;
+}
+
+// Unlock file using flock
+bool unlock_file (const std::string& path) {
+  int file_descriptor = open(path.c_str(), O_CREAT | O_RDWR, 0666);
+
+  if (file_descriptor == -1) {
+    perror("Failed to open file.\n");
+    return false;
+  }
+
+  if (flock(file_descriptor, LOCK_UN) == -1) {
+    perror("Failed to unlock file.\n");
+    close(file_descriptor);
+    return false;
+  }
+
+  return true;
+}
+
+// Clear file
+bool clear_file (const std::string& path) {
+  std::ofstream output_filestream;
+  output_filestream.open(path, std::ofstream::out | std::ofstream::trunc);
+
+  if (!output_filestream) {
+    perror("Failed to open file.\n");
+    return false;
+  }
+  
+  output_filestream.close();
+  return true;
+}
+
+// Delete a file
+bool remove_file (const std::string& path) {
+  int status = remove(path.c_str());
+
+  if (status != 0) {
+    perror("Error deleting file");
+    return false;
+  } return true;
+}

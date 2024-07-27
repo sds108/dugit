@@ -27,6 +27,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fstream>
+#include <fcntl.h>
+#include <sys/file.h>
 
 // Special custom includes and defines
 #ifndef nullstr
@@ -38,8 +40,8 @@ std::string get_cwd();
 std::string get_executable_path(const std::string& exec_name);
 
 // Run command
-int execute_without_output(const std::string& command);
-int execute_without_output(const std::vector<std::string>& commands);
+uint32_t execute_without_output(const std::string& command);
+uint32_t execute_without_output(const std::vector<std::string>& commands);
 
 // Run command and get output
 std::string execute_with_output(const std::string& command);
@@ -78,5 +80,20 @@ bool line_in_file_exists(const std::string& path, const std::string& s);
 
 // Append line to a file
 bool append_line_to_file(const std::string& path, const std::string& s);
+
+// Return position of line in file (return UINT_MAX otherwise)
+uint32_t line_pos_in_file(const std::string& path, const std::string& s);
+
+// Lock file using flock
+bool lock_file(const std::string& path);
+
+// Unlock file using flock
+bool unlock_file(const std::string& path);
+
+// Clear file
+bool clear_file(const std::string& path);
+
+// Delete a file
+bool remove_file(const std::string& path);
 
 #endif

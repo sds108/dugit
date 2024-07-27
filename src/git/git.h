@@ -28,6 +28,9 @@ struct Session {
   // List of recent repositories
   std::vector<Repository*> repositories;
 
+  // $PPID - Parent Process ID
+  std::string ppid;
+
   // Constructor Sequence
   Session();
 
@@ -121,8 +124,8 @@ struct Branch {
   ~Branch();
 };
 
-// Main controller function
-void parse_input(const std::string& input);
+// Get PPID
+std::string get_ppid();
 
 // Get git version
 std::string get_git_version();
@@ -165,5 +168,14 @@ bool add_dugit_to_gitignore(const std::string& path);
 
 // Check if .dugit is already in the .gitignore
 bool check_dugit_in_gitignore(const std::string& path);
+
+// Check .lock file
+bool check_lock_file(const std::string& path, const std::string& ppid);
+
+// Set .lock file
+bool set_lock_file(const std::string& path, const std::string& ppid);
+
+// Unset .lock file
+bool unset_lock_file(const std::string& path);
 
 #endif

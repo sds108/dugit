@@ -273,3 +273,51 @@ bool check_dugit_in_gitignore (const std::string& path) {
 
   return line_in_file_exists(path + "/.gitignore", ".dugit/");
 }
+
+// Get PPID
+std::string get_ppid () {
+  /*
+    To prevent race conditions
+    between different terminal
+    windows using dugit, the
+    terminal window ppid can
+    be used to decide who owns
+    the .lock file.
+  */
+
+  std::string command = "echo $PPID";
+  return execute_with_output_single_line(command);
+}
+
+// Check .lock file
+bool check_lock_file (const std::string& path, const std::string& ppid) {
+  if (!file_exists(path))
+    return false;
+  
+  if (line_pos_in_file(path, ppid) == UINT32_MAX)
+    return false;
+
+  return true;
+}
+
+// set .lock file
+bool set_lock_file (const std::string& path, const std::string& ppid) {
+  if (!lock_file(path))
+    return false;
+  
+  if (!append_line_to_file(path, ppid))
+    return false;
+
+  return true;
+}
+
+// unset .lock file
+bool unset_lock_file (const std::string& path) {
+  if (!clear_file(path))
+    return false;
+
+  if (!unlock_file(path))
+    return false;
+
+  return true;
+}

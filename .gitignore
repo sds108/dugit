@@ -1,3 +1,7 @@
+# Things to make sure are tracked
+!.gitignore
+
+# Exclude generic CMake files
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles

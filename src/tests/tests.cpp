@@ -2,6 +2,7 @@
 #include "tests.h"
 
 void run_tests () {
+  t_get_ppid();
   t_get_cwd();
   t_get_exec_path();
   t_get_git_version();
@@ -16,9 +17,26 @@ void run_tests () {
   t_get_dugit_path();
   t_create_dugit_directory();
   t_add_dugit_to_gitignore();
+  t_check_lock_file();
+  t_set_lock_file();
+  t_check_lock_file();
+  t_unset_lock_file();
 }
 
 // Definitions
+void t_get_ppid () {
+  std::string ppid = get_ppid();
+
+  if (ppid == nullstr)
+    std::cout << "t_get_ppid: NULL\n";
+  else {
+    std::cout << "t_get_ppid: " << ppid << " => ";
+    for (const auto& c : ppid) {
+      std::cout << uint32_t(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
 void t_get_cwd () {
   std::string cwd = get_cwd();
 
@@ -27,7 +45,7 @@ void t_get_cwd () {
   else {
     std::cout << "t_get_cwd: " << cwd << " => ";
     for (const auto& c : cwd) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -40,7 +58,7 @@ void t_get_exec_path () {
   else {
     std::cout << "t_get_exec_path: " << git_exec_path << " => ";
     for (const auto& c : git_exec_path) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -53,7 +71,7 @@ void t_get_git_version () {
   else {
     std::cout << "t_get_git_version: " << git_version << " => ";
     for (const auto& c : git_version) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -67,7 +85,7 @@ void t_get_remote_names () {
     for (const auto& name : remote_names) {
       std::cout << "t_get_remote_names: " << name << " => ";
       for (const auto& c : name) {
-        std::cout << int(c) << ", ";
+        std::cout << uint32_t(c) << ", ";
       } std::cout << std::endl;
     }
   }
@@ -90,7 +108,7 @@ void t_get_remote_links () {
         for (const auto& link : remote_push_links) {
           std::cout << link << " length: "<< link.length() << " => ";
           for (const auto& c : link) {
-            std::cout << int(c) << ", ";
+            std::cout << uint32_t(c) << ", ";
           } std::cout << std::endl;
         }
       }
@@ -102,7 +120,7 @@ void t_get_remote_links () {
         for (const auto& link : remote_fetch_links) {
           std::cout << link << " length: "<< link.length() << " => ";
           for (const auto& c : link) {
-            std::cout << int(c) << ", ";
+            std::cout << uint32_t(c) << ", ";
           } std::cout << std::endl;
         }
       }
@@ -120,7 +138,7 @@ void t_get_local_branch_names () {
     for (const auto& branch_name : branch_names) {
       std::cout << branch_name << " length: "<< branch_name.length() << " => ";
       for (auto c : branch_name) {
-        std::cout << int(c) << ", ";
+        std::cout << uint32_t(c) << ", ";
       } std::cout << std::endl;
     }
   }
@@ -142,7 +160,7 @@ void t_get_remote_branch_names () {
         for (const auto& branch_name : branch_names) {
           std::cout << branch_name << " length: "<< branch_name.length() << " => ";
           for (const auto& c : branch_name) {
-            std::cout << int(c) << ", ";
+            std::cout << uint32_t(c) << ", ";
           } std::cout << std::endl;
         }
       }
@@ -158,7 +176,7 @@ void t_get_current_branch_name () {
   else {
     std::cout << "t_get_current_branch_name: " << current_branch_name << " => ";
     for (const auto& c : current_branch_name) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -171,7 +189,7 @@ void t_get_superproject_working_tree_path () {
    else {
     std::cout << "t_get_superproject_working_tree_path: " << superproject_working_tree_path << " => ";
     for (const auto& c : superproject_working_tree_path) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -183,7 +201,7 @@ void t_get_toplevel_path () {
    else {
     std::cout << "t_get_toplevel_path: " << toplevel_path << " => ";
     for (const auto& c : toplevel_path) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -196,7 +214,7 @@ void t_get_superproject_path_manually () {
    else {
     std::cout << "t_get_superproject_path_manually: " << superproject_working_tree_path << " => ";
     for (const auto& c : superproject_working_tree_path) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -209,7 +227,7 @@ void t_get_dugit_path() {
    else {
     std::cout << "t_get_dugit_path: " << dugit_path << " => ";
     for (const auto& c : dugit_path) {
-      std::cout << int(c) << ", ";
+      std::cout << uint32_t(c) << ", ";
     } std::cout << std::endl;
   }
 }
@@ -223,10 +241,10 @@ void t_create_dugit_directory () {
       std::cout << "t_create_dugit_directory: NULL\n";
     else {
       if (create_dugit_directory(superproject_working_tree_path))
-        std::cout << "t_create_dugit_directory: " << get_dugit_path();
+        std::cout << "t_create_dugit_directory: " << get_dugit_path() << std::endl;
       else std::cout << "t_create_dugit_directory: NULL\n";
     }
-  }
+  } else std::cout << "t_create_dugit_directory: " << get_dugit_path() << std::endl;
 }
 
 void t_add_dugit_to_gitignore () {
@@ -240,5 +258,45 @@ void t_add_dugit_to_gitignore () {
         std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
       else std::cout << "t_add_dugit_to_gitignore: NULL\n";
     } else std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
+  }
+}
+
+void t_check_lock_file () {
+  std::string ppid = get_ppid();
+  std::string dugit_path = get_dugit_path();
+
+  if (ppid == nullstr || dugit_path == nullstr)
+    std::cout << "t_check_lock_file: NULL\n";
+  else {
+    if (check_lock_file(dugit_path + "/.lock", ppid))
+      std::cout << "t_check_lock_file: SUCCESS\n";
+    else std::cout << "t_check_lock_file: NULL\n";
+  }
+}
+
+void t_set_lock_file () {
+  std::string ppid = get_ppid();
+  std::string dugit_path = get_dugit_path();
+
+  if (ppid == nullstr || dugit_path == nullstr)
+    std::cout << "t_set_lock_file: NULL\n";
+  else {
+    if (set_lock_file(dugit_path + "/.lock", ppid))
+      std::cout << "t_set_lock_file: SUCCESS\n";
+    else std::cout << "t_set_lock_file: NULL\n";
+  }
+
+  sleep(1);
+}
+
+void t_unset_lock_file () {
+  std::string dugit_path = get_dugit_path();
+
+  if (dugit_path == nullstr)
+    std::cout << "t_unset_lock_file: NULL\n";
+  else {
+    if (unset_lock_file(dugit_path + "/.lock"))
+      std::cout << "t_unset_lock_file: SUCCESS\n";
+    else std::cout << "t_unset_lock_file: NULL\n";
   }
 }
