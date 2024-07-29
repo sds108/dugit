@@ -1,5 +1,27 @@
 #include "include.h"
 
+std::string get_shell () {
+  const std::string shell = getenv("SHELL");
+  if (!shell.empty())
+    return shell;
+  return nullstr;
+}
+
+// Get PPID
+std::string get_ppid () {
+  /*
+    To prevent race conditions
+    between different terminal
+    windows using dugit, the
+    terminal window ppid can
+    be used to decide who owns
+    the .lock file.
+  */
+
+  std::string command = "echo $PPID";
+  return execute_with_output_single_line(command);
+}
+
 std::string get_cwd () {
   char buffer[4096];
   if (getcwd(buffer, sizeof(buffer)) == NULL)
@@ -7,21 +29,64 @@ std::string get_cwd () {
   return buffer;
 }
 
-// Run command
 uint32_t execute_without_output (const std::string& command) {
-  FILE* pipe = popen(command.c_str(), "r");
-  if (!pipe) {
-    perror("popen");
+  std::string shell = get_shell();
+  if (shell == nullstr)
+    return 1;
+
+  int stdout_pipe[2];
+  int stderr_pipe[2];
+  if (pipe(stdout_pipe) != 0 || pipe(stderr_pipe) != 0) {
+    perror("pipe");
     return 1;
   }
 
-  int exitCode = pclose(pipe);
-  if (exitCode == -1) {
-    perror("pclose");
+  pid_t pid = fork();
+  if (pid == -1) {
+    perror("fork");
     return 1;
-  }
+  } else if (pid == 0) {
+    // Child process
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    dup2(stdout_pipe[1], STDOUT_FILENO);
+    dup2(stderr_pipe[1], STDERR_FILENO);
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
 
-  return 0;
+    execl(shell.c_str(), shell.c_str(), "-c", command.c_str(), (char *) NULL);
+    _exit(EXIT_FAILURE);
+  } else {
+    // Parent process
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+
+    std::ostringstream stdout_stream;
+    std::ostringstream stderr_stream;
+    char buffer[4096];
+    ssize_t count;
+
+    while ((count = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0) {
+      stdout_stream.write(buffer, count);
+    }
+    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0) {
+      stderr_stream.write(buffer, count);
+    }
+
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+
+    int status;
+    waitpid(pid, &status, 0);
+
+    if (!stderr_stream.str().empty()) {
+      std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + '\n';
+      // perror(err_msg.c_str());
+      return 1;
+    }
+
+    return 0;
+  }
 }
 
 uint32_t execute_without_output (const std::vector<std::string>& commands) {
@@ -35,36 +100,73 @@ uint32_t execute_without_output (const std::vector<std::string>& commands) {
   return execute_without_output(concatenated);
 }
 
-// Run command and get output, return NULL if any error
-std::string execute_with_output(const std::string& command) {
-  FILE* pipe = popen(command.c_str(), "r");
-  if (!pipe) {
-    perror("popen");
+std::string execute_with_output (const std::string& command) {
+  std::string shell = get_shell();
+  if (shell == nullstr)
+    return nullstr;
+  
+  int stdout_pipe[2];
+  int stderr_pipe[2];
+  if (pipe(stdout_pipe) != 0 || pipe(stderr_pipe) != 0) {
+    perror("pipe");
     return nullstr;
   }
 
-  std::ostringstream oss;
-  char buffer[4096];
-  while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-    oss << buffer;
-  }
-
-  int exitCode = pclose(pipe);
-  if (exitCode == -1) {
-    perror("pclose");
+  pid_t pid = fork();
+  if (pid == -1) {
+    perror("fork");
     return nullstr;
+  } else if (pid == 0) {
+    // Child process
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    dup2(stdout_pipe[1], STDOUT_FILENO);
+    dup2(stderr_pipe[1], STDERR_FILENO);
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+
+    execl(shell.c_str(), shell.c_str(), "-c", command.c_str(), (char *) NULL);
+    _exit(EXIT_FAILURE);
+  } else {
+    // Parent process
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+
+    std::ostringstream stdout_stream;
+    std::ostringstream stderr_stream;
+    char buffer[4096];
+    ssize_t count;
+
+    while ((count = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0) {
+      stdout_stream.write(buffer, count);
+    }
+    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0) {
+      stderr_stream.write(buffer, count);
+    }
+
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+
+    int status;
+    waitpid(pid, &status, 0);
+
+    if (!stderr_stream.str().empty()) {
+      std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + '\n';
+      // perror(err_msg.c_str());
+      return nullstr;
+    }
+
+    // Filter out special characters
+    std::string stdout_str = stdout_stream.str();
+    std::string output;
+
+    for (const auto& c : stdout_str) {
+      if (c < 32 && c != 10) continue;
+      else output += c;
+    }
+
+    return output;
   }
-
-  // Filter out special characters
-  std::string oss_str = oss.str();
-  std::string output;
-
-  for (const auto& c : oss_str) {
-    if (c < 32 && c != 10) continue;
-    else output += c;
-  }
-
-  return output;
 }
 
 std::string execute_with_output(const std::vector<std::string>& commands) {
@@ -361,6 +463,26 @@ bool remove_file (const std::string& path) {
 
   if (status != 0) {
     perror("Error deleting file");
+    return false;
+  } return true;
+}
+
+// Check external dependencies
+bool check_external_dependencies (const std::vector<std::string>& dependencies) {
+  /*
+    Return true if all external
+    dependencies satisfied.
+  */
+
+  std::string err_msg;
+
+  for (const auto& dependency : dependencies) {
+    if (get_executable_path(dependency) == nullstr)
+      err_msg += "missing dependency: " + dependency + '\n';
+  }
+
+  if (!err_msg.empty()) {
+    perror(err_msg.c_str());
     return false;
   } return true;
 }

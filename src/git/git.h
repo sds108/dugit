@@ -124,11 +124,11 @@ struct Branch {
   ~Branch();
 };
 
-// Get PPID
-std::string get_ppid();
-
 // Get git version
 std::string get_git_version();
+
+// Check dugit external dependencies
+bool check_dugit_external_dependencies();
 
 // Get remote names
 std::vector<std::string> get_remote_names();
@@ -151,8 +151,11 @@ std::string get_superproject_working_tree_path();
 // Get Top Level path
 std::string get_toplevel_path();
 
-// Get Top Level path manually
+// Get Super Project Working Tree path manually
 std::string get_superproject_path_manually();
+
+// Get Top Level path manually
+std::string get_toplevel_path_manually();
 
 // Return if currently inside working tree
 bool is_inside_working_tree(const std::string& path);

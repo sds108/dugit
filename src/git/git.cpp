@@ -38,6 +38,19 @@ std::string get_git_version() {
   return words[2];
 }
 
+// Check dugit external dependencies
+bool check_dugit_external_dependencies () {
+  /*
+    Most importantly, one needs
+    git to be installed on their
+    host machine.
+  */
+
+  return check_external_dependencies(std::vector<std::string>({
+    "git",
+  }));
+}
+
 // Get remote names
 std::vector<std::string> get_remote_names() {
   /*
@@ -188,7 +201,7 @@ std::string get_toplevel_path () {
   return execute_with_output_single_line(command);  
 }
 
-// Get Super Project Top Level path manually
+// Get Super Project Working Tree path manually
 std::string get_superproject_path_manually () {
   /*
     We can get the toplevel path of the
@@ -200,7 +213,8 @@ std::string get_superproject_path_manually () {
   std::string current_path = get_cwd();
   std::string last_valid_path = nullstr;
 
-  while (is_inside_working_tree(current_path)) {
+  while (is_inside_working_tree(current_path) &&
+    current_path != last_valid_path) {
     last_valid_path = current_path;
     current_path = execute_with_output_single_line(
       std::vector<std::string>(
@@ -210,6 +224,36 @@ std::string get_superproject_path_manually () {
   }
 
   return last_valid_path;
+}
+
+// Get Top Level path manually
+std::string get_toplevel_path_manually () {
+  /*
+    We can get the toplevel path of the
+    current repo by recursively going 
+    backwards through the directories
+    starting from the current working
+    directory.
+  */
+
+  std::string current_path = get_cwd();
+  std::string previous_path;
+  std::string first_valid_path = nullstr;
+
+  while (is_inside_working_tree(current_path) &&
+    current_path != previous_path &&
+    first_valid_path == nullstr) {
+    if (dir_exists(current_path + "/.git"))
+      first_valid_path = current_path;
+    previous_path = current_path;
+    current_path = execute_with_output_single_line(
+      std::vector<std::string>(
+        {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
+      )
+    );
+  }
+
+  return first_valid_path;
 }
 
 // Return if currently inside working tree
@@ -272,21 +316,6 @@ bool check_dugit_in_gitignore (const std::string& path) {
     return false;
 
   return line_in_file_exists(path + "/.gitignore", ".dugit/");
-}
-
-// Get PPID
-std::string get_ppid () {
-  /*
-    To prevent race conditions
-    between different terminal
-    windows using dugit, the
-    terminal window ppid can
-    be used to decide who owns
-    the .lock file.
-  */
-
-  std::string command = "echo $PPID";
-  return execute_with_output_single_line(command);
 }
 
 // Check .lock file

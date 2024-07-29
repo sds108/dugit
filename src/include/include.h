@@ -29,6 +29,8 @@
 #include <fstream>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 // Special custom includes and defines
 #ifndef nullstr
@@ -36,6 +38,8 @@
 #endif
 
 // Useful functions
+std::string get_shell();
+std::string get_ppid();
 std::string get_cwd();
 std::string get_executable_path(const std::string& exec_name);
 
@@ -95,5 +99,8 @@ bool clear_file(const std::string& path);
 
 // Delete a file
 bool remove_file(const std::string& path);
+
+// Check external dependencies
+bool check_external_dependencies(const std::vector<std::string>& dependencies);
 
 #endif

@@ -2,9 +2,11 @@
 #include "tests.h"
 
 void run_tests () {
+  t_get_shell();
   t_get_ppid();
   t_get_cwd();
   t_get_exec_path();
+  t_check_dugit_external_dependencies();
   t_get_git_version();
   t_get_remote_names();
   t_get_remote_links();
@@ -14,16 +16,29 @@ void run_tests () {
   t_get_superproject_working_tree_path();
   t_get_toplevel_path();
   t_get_superproject_path_manually();
+  t_get_toplevel_path_manually();
   t_get_dugit_path();
   t_create_dugit_directory();
   t_add_dugit_to_gitignore();
-  t_check_lock_file();
   t_set_lock_file();
   t_check_lock_file();
   t_unset_lock_file();
 }
 
 // Definitions
+void t_get_shell () {
+  std::string shell = get_shell();
+
+  if (shell == nullstr)
+    std::cout << "t_get_shell: NULL\n";
+  else {
+    std::cout << "t_get_shell: " << shell << " => ";
+    for (const auto& c : shell) {
+      std::cout << uint32_t(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
 void t_get_ppid () {
   std::string ppid = get_ppid();
 
@@ -219,6 +234,19 @@ void t_get_superproject_path_manually () {
   }
 }
 
+void t_get_toplevel_path_manually () {
+  std::string toplevel_path = get_toplevel_path_manually();
+
+  if (toplevel_path == nullstr)
+    std::cout << "t_get_toplevel_path_manually: NULL\n";
+   else {
+    std::cout << "t_get_toplevel_path_manually: " << toplevel_path << " => ";
+    for (const auto& c : toplevel_path) {
+      std::cout << uint32_t(c) << ", ";
+    } std::cout << std::endl;
+  }
+}
+
 void t_get_dugit_path() {
   std::string dugit_path = get_dugit_path();
 
@@ -234,13 +262,13 @@ void t_get_dugit_path() {
 
 void t_create_dugit_directory () {
   std::string dugit_path = get_dugit_path();
-  std::string superproject_working_tree_path = get_superproject_path_manually();
+  std::string toplevel_path = get_toplevel_path_manually();
 
   if (dugit_path == nullstr) {
-    if (superproject_working_tree_path == nullstr)
+    if (toplevel_path == nullstr)
       std::cout << "t_create_dugit_directory: NULL\n";
     else {
-      if (create_dugit_directory(superproject_working_tree_path))
+      if (create_dugit_directory(toplevel_path))
         std::cout << "t_create_dugit_directory: " << get_dugit_path() << std::endl;
       else std::cout << "t_create_dugit_directory: NULL\n";
     }
@@ -248,13 +276,13 @@ void t_create_dugit_directory () {
 }
 
 void t_add_dugit_to_gitignore () {
-  std::string superproject_working_tree_path = get_superproject_path_manually();
+  std::string toplevel_path = get_toplevel_path_manually();
 
-  if (superproject_working_tree_path == nullstr)
+  if (toplevel_path == nullstr)
     std::cout << "t_add_dugit_to_gitignore: NULL\n";
   else {
-    if (!check_dugit_in_gitignore(superproject_working_tree_path)) {
-      if (add_dugit_to_gitignore(superproject_working_tree_path))
+    if (!check_dugit_in_gitignore(toplevel_path)) {
+      if (add_dugit_to_gitignore(toplevel_path))
         std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
       else std::cout << "t_add_dugit_to_gitignore: NULL\n";
     } else std::cout << "t_add_dugit_to_gitignore: SUCCESS\n";
@@ -286,7 +314,7 @@ void t_set_lock_file () {
     else std::cout << "t_set_lock_file: NULL\n";
   }
 
-  sleep(1);
+  // sleep(1);
 }
 
 void t_unset_lock_file () {
@@ -299,4 +327,10 @@ void t_unset_lock_file () {
       std::cout << "t_unset_lock_file: SUCCESS\n";
     else std::cout << "t_unset_lock_file: NULL\n";
   }
+}
+
+void t_check_dugit_external_dependencies () {
+  if (check_dugit_external_dependencies())
+    std::cout << "t_check_dugit_external_dependencies: SUCCESS\n";
+  else std::cout << "t_check_dugit_external_dependencies: NULL\n";
 }
