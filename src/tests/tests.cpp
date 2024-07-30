@@ -92,7 +92,7 @@ void t_get_git_version () {
 }
 
 void t_get_remote_names () {
-  std::vector<std::string> remote_names = get_remote_names();
+  std::vector<std::string> remote_names = get_remote_names(get_cwd());
 
   if (remote_names.empty())
     std::cout << "t_get_remote_names: NULL\n";
@@ -107,14 +107,14 @@ void t_get_remote_names () {
 }
 
 void t_get_remote_links () {
-  std::vector<std::string> remote_names = get_remote_names();
+  std::vector<std::string> remote_names = get_remote_names(get_cwd());
 
   if (remote_names.empty())
     std::cout << "t_get_remote_links: NULL\n";
   else {
     for (const auto& remote_name : remote_names) {
-      std::vector<std::string> remote_push_links = get_remote_links(remote_name, "(push)");
-      std::vector<std::string> remote_fetch_links = get_remote_links(remote_name, "(fetch)");
+      std::vector<std::string> remote_push_links = get_remote_links(get_cwd(), remote_name, "(push)");
+      std::vector<std::string> remote_fetch_links = get_remote_links(get_cwd(), remote_name, "(fetch)");
 
       if (remote_push_links.empty())
         std::cout << "t_get_remote_links: " << remote_name << " (push) NULL\n";
@@ -144,7 +144,7 @@ void t_get_remote_links () {
 }
 
 void t_get_local_branch_names () {
-  std::vector<std::string> branch_names = get_local_branch_names();
+  std::vector<std::string> branch_names = get_local_branch_names(get_cwd());
 
   if (branch_names.empty())
     std::cout << "t_get_local_branch_names: NULL\n";
@@ -160,13 +160,13 @@ void t_get_local_branch_names () {
 }
 
 void t_get_remote_branch_names () {
-  std::vector<std::string> remote_names = get_remote_names();
+  std::vector<std::string> remote_names = get_remote_names(get_cwd());
 
   if (remote_names.empty())
     std::cout << "t_get_remote_branch_names: NULL\n";
   else {
     for (const auto& remote_name : remote_names) {
-      std::vector<std::string> branch_names = get_remote_branch_names(remote_name);
+      std::vector<std::string> branch_names = get_remote_branch_names(get_cwd(), remote_name);
 
       if (branch_names.empty())
         std::cout << "t_get_remote_branch_names: " << remote_name << " NULL\n";
@@ -184,7 +184,7 @@ void t_get_remote_branch_names () {
 }
 
 void t_get_current_branch_name () {
-  std::string current_branch_name = get_current_branch_name();
+  std::string current_branch_name = get_current_branch_name(get_cwd());
 
   if (current_branch_name == nullstr)
     std::cout << "t_get_current_branch_name: NULL\n";
@@ -197,7 +197,7 @@ void t_get_current_branch_name () {
 }
 
 void t_get_superproject_working_tree_path () {
-  std::string superproject_working_tree_path = get_superproject_working_tree_path();
+  std::string superproject_working_tree_path = get_superproject_working_tree_path(get_cwd());
 
   if (superproject_working_tree_path == nullstr)
     std::cout << "t_get_superproject_working_tree_path: NULL\n";
@@ -209,7 +209,7 @@ void t_get_superproject_working_tree_path () {
   }
 }
 void t_get_toplevel_path () {
-  std::string toplevel_path = get_toplevel_path();
+  std::string toplevel_path = get_toplevel_path(get_cwd());
 
   if (toplevel_path == nullstr)
     std::cout << "t_get_toplevel_path: NULL\n";
@@ -222,7 +222,7 @@ void t_get_toplevel_path () {
 }
 
 void t_get_superproject_path_manually () {
-  std::string superproject_working_tree_path = get_superproject_path_manually();
+  std::string superproject_working_tree_path = get_superproject_path_manually(get_cwd());
 
   if (superproject_working_tree_path == nullstr)
     std::cout << "t_get_superproject_path_manually: NULL\n";
@@ -235,7 +235,7 @@ void t_get_superproject_path_manually () {
 }
 
 void t_get_toplevel_path_manually () {
-  std::string toplevel_path = get_toplevel_path_manually();
+  std::string toplevel_path = get_toplevel_path_manually(get_cwd());
 
   if (toplevel_path == nullstr)
     std::cout << "t_get_toplevel_path_manually: NULL\n";
@@ -248,7 +248,7 @@ void t_get_toplevel_path_manually () {
 }
 
 void t_get_dugit_path() {
-  std::string dugit_path = get_dugit_path();
+  std::string dugit_path = get_dugit_path(get_cwd());
 
   if (dugit_path == nullstr)
     std::cout << "t_get_dugit_path: NULL\n";
@@ -261,22 +261,22 @@ void t_get_dugit_path() {
 }
 
 void t_create_dugit_directory () {
-  std::string dugit_path = get_dugit_path();
-  std::string toplevel_path = get_toplevel_path_manually();
+  std::string dugit_path = get_dugit_path(get_cwd());
+  std::string toplevel_path = get_toplevel_path_manually(get_cwd());
 
   if (dugit_path == nullstr) {
     if (toplevel_path == nullstr)
       std::cout << "t_create_dugit_directory: NULL\n";
     else {
       if (create_dugit_directory(toplevel_path))
-        std::cout << "t_create_dugit_directory: " << get_dugit_path() << std::endl;
+        std::cout << "t_create_dugit_directory: " << get_dugit_path(get_cwd()) << std::endl;
       else std::cout << "t_create_dugit_directory: NULL\n";
     }
-  } else std::cout << "t_create_dugit_directory: " << get_dugit_path() << std::endl;
+  } else std::cout << "t_create_dugit_directory: " << get_dugit_path(get_cwd()) << std::endl;
 }
 
 void t_add_dugit_to_gitignore () {
-  std::string toplevel_path = get_toplevel_path_manually();
+  std::string toplevel_path = get_toplevel_path_manually(get_cwd());
 
   if (toplevel_path == nullstr)
     std::cout << "t_add_dugit_to_gitignore: NULL\n";
@@ -291,7 +291,7 @@ void t_add_dugit_to_gitignore () {
 
 void t_check_lock_file () {
   std::string ppid = get_ppid();
-  std::string dugit_path = get_dugit_path();
+  std::string dugit_path = get_dugit_path(get_cwd());
 
   if (ppid == nullstr || dugit_path == nullstr)
     std::cout << "t_check_lock_file: NULL\n";
@@ -304,7 +304,7 @@ void t_check_lock_file () {
 
 void t_set_lock_file () {
   std::string ppid = get_ppid();
-  std::string dugit_path = get_dugit_path();
+  std::string dugit_path = get_dugit_path(get_cwd());
 
   if (ppid == nullstr || dugit_path == nullstr)
     std::cout << "t_set_lock_file: NULL\n";
@@ -318,7 +318,7 @@ void t_set_lock_file () {
 }
 
 void t_unset_lock_file () {
-  std::string dugit_path = get_dugit_path();
+  std::string dugit_path = get_dugit_path(get_cwd());
 
   if (dugit_path == nullstr)
     std::cout << "t_unset_lock_file: NULL\n";

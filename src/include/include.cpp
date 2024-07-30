@@ -7,7 +7,6 @@ std::string get_shell () {
   return nullstr;
 }
 
-// Get PPID
 std::string get_ppid () {
   /*
     To prevent race conditions
@@ -34,46 +33,36 @@ uint32_t execute_without_output (const std::string& command) {
   if (shell == nullstr)
     return 1;
 
-  int stdout_pipe[2];
   int stderr_pipe[2];
-  if (pipe(stdout_pipe) != 0 || pipe(stderr_pipe) != 0) {
+  if (pipe(stderr_pipe) != 0) {
     perror("pipe");
     return 1;
   }
 
+  // Fork process into child and parent
   pid_t pid = fork();
   if (pid == -1) {
     perror("fork");
     return 1;
   } else if (pid == 0) {
     // Child process
-    close(stdout_pipe[0]);
     close(stderr_pipe[0]);
-    dup2(stdout_pipe[1], STDOUT_FILENO);
     dup2(stderr_pipe[1], STDERR_FILENO);
-    close(stdout_pipe[1]);
     close(stderr_pipe[1]);
 
     execl(shell.c_str(), shell.c_str(), "-c", command.c_str(), (char *) NULL);
     _exit(EXIT_FAILURE);
   } else {
     // Parent process
-    close(stdout_pipe[1]);
     close(stderr_pipe[1]);
 
-    std::ostringstream stdout_stream;
     std::ostringstream stderr_stream;
     char buffer[4096];
     ssize_t count;
 
-    while ((count = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0) {
-      stdout_stream.write(buffer, count);
-    }
-    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0) {
+    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0)
       stderr_stream.write(buffer, count);
-    }
 
-    close(stdout_pipe[0]);
     close(stderr_pipe[0]);
 
     int status;
@@ -137,12 +126,10 @@ std::string execute_with_output (const std::string& command) {
     char buffer[4096];
     ssize_t count;
 
-    while ((count = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0) {
+    while ((count = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0)
       stdout_stream.write(buffer, count);
-    }
-    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0) {
+    while ((count = read(stderr_pipe[0], buffer, sizeof(buffer))) > 0)
       stderr_stream.write(buffer, count);
-    }
 
     close(stdout_pipe[0]);
     close(stderr_pipe[0]);

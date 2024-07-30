@@ -1,4 +1,8 @@
 // All unit tests are declared here
+
+#ifndef TESTS_H
+#define TESTS_H
+
 #include "include.h"
 #include "git.h"
 
@@ -27,3 +31,5 @@ void t_check_lock_file();
 void t_set_lock_file();
 void t_unset_lock_file();
 void t_check_dugit_external_dependencies();
+
+#endif
