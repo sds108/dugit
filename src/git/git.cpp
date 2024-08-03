@@ -52,7 +52,7 @@ bool check_dugit_external_dependencies () {
 }
 
 // Get remote names
-std::vector<std::string> get_remote_names(const std::string& working_path) {
+std::string get_remote_names(const std::string& working_path) {
   /*
     We can use git remote to get all of the
     names of each connected remote, simply
@@ -61,12 +61,11 @@ std::vector<std::string> get_remote_names(const std::string& working_path) {
 
   std::vector<std::string> commands = {
     "cd", working_path, "&&","git", "remote"
-  };
-  return execute_with_output_multi_line(commands);
+  }; return execute_with_output(commands);
 }
 
 // Get remote push links, filtered by remote name and direction
-std::vector<std::string> get_remote_links(const std::string& working_path, const std::string& remote_name, const std::string& direction) {
+std::string get_remote_links(const std::string& working_path, const std::string& remote_name, const std::string& direction) {
   /*
     To get the remote push links, one can
     use git remote get-url remote_name --push or --all,
@@ -91,16 +90,16 @@ std::vector<std::string> get_remote_links(const std::string& working_path, const
   };
 
   // Get remote links
-  std::vector<std::string> remote_links = execute_with_output_multi_line(commands);
-  std::vector<std::string> verify_remote_links = execute_with_output_multi_line(verify_commands);
+  std::string remote_links_str = execute_with_output(commands);
+  std::string verify_remote_links_str = execute_with_output(verify_commands);
 
-  // If we receive a nullstr, return an empty vector
-  if (remote_links.empty() || verify_remote_links.empty())
-    return std::vector<std::string>();
+  // If we receive a nullstr, return an nullstr
+  if (remote_links_str == nullstr || verify_remote_links_str == nullstr)
+    return nullstr;
 
   std::vector<std::string> output;
-  for (const auto& link : remote_links) {
-    for (const auto& line : verify_remote_links) {
+  for (const auto& link : get_lines_from_string(remote_links_str)) {
+    for (const auto& line : get_lines_from_string(verify_remote_links_str)) {
       if (line.find(link) != std::string::npos &&
       line.find(direction) != std::string::npos &&
       line.find(remote_name) == 0)
@@ -108,11 +107,11 @@ std::vector<std::string> get_remote_links(const std::string& working_path, const
     }
   }
 
-  return output;
+  return get_string_from_lines(output);
 }
 
 // Get local branch names
-std::vector<std::string> get_local_branch_names (const std::string& working_path) {
+std::string get_local_branch_names (const std::string& working_path) {
   /*
     This can be achieved using git branch, and the
     output is expected to be in the format of
@@ -123,17 +122,19 @@ std::vector<std::string> get_local_branch_names (const std::string& working_path
     "cd", working_path, "&&", "git", "branch"
   };
 
-  std::vector<std::string> local_branch_names = execute_with_output_multi_line(commands);
+  std::string command_out = execute_with_output(commands);
+  if (command_out == nullstr)
+    return nullstr;
 
-  if (local_branch_names.empty() ||
-    !strings_trim_fronts(local_branch_names, 2))
-    return std::vector<std::string>();
+  std::vector<std::string> local_branch_names = get_lines_from_string(command_out);
+  if (!strings_trim_fronts(local_branch_names, 2))
+    return nullstr;
 
-  return local_branch_names;
+  return get_string_from_lines(local_branch_names);
 }
 
 // Get remote branch names, filtered by remote name
-std::vector<std::string> get_remote_branch_names (const std::string& working_path, const std::string& remote_name) {
+std::string get_remote_branch_names (const std::string& working_path, const std::string& remote_name) {
   /*
     Remote branch names can be
     fetched with git branch -r. The
@@ -146,14 +147,15 @@ std::vector<std::string> get_remote_branch_names (const std::string& working_pat
   };
 
   // Get remote branch names
-  std::vector<std::string> command_out = execute_with_output_multi_line(commands);
+  std::string command_out = execute_with_output(commands);
 
-  if (command_out.empty())
-    return std::vector<std::string>();
+  if (command_out == nullstr)
+    return nullstr;
 
   // Filter for remote_name
+  std::vector<std::string> all_branch_names = get_lines_from_string(command_out);
   std::vector<std::string> remote_branch_names;
-  for (const auto& name : command_out) {
+  for (const auto& name : all_branch_names) {
     // Skip if line contains "HEAD"
     if (name.find("HEAD") != std::string::npos)
       continue;
@@ -166,9 +168,9 @@ std::vector<std::string> get_remote_branch_names (const std::string& working_pat
   }
 
   if (!strings_trim_fronts(remote_branch_names, remote_name.length() + 3))
-    return std::vector<std::string>();
-
-  return remote_branch_names;
+    return nullstr;
+  
+  return get_string_from_lines(remote_branch_names);
 }
 
 // Get current branch name
@@ -230,9 +232,7 @@ std::string get_superproject_path_manually (const std::string& working_path) {
     current_path != last_valid_path) {
     last_valid_path = current_path;
     current_path = execute_with_output_single_line(
-      std::vector<std::string>(
-        {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
-      )
+      {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
     );
   }
 
@@ -260,9 +260,7 @@ std::string get_toplevel_path_manually (const std::string& working_path) {
       first_valid_path = current_path;
     previous_path = current_path;
     current_path = execute_with_output_single_line(
-      std::vector<std::string>(
-        {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
-      )
+      {"cd", current_path, "&&", "cd ..", "&&", "pwd"}
     );
   }
 
@@ -284,9 +282,7 @@ bool is_inside_working_tree (const std::string& path) {
     {"cd", path, "&&", "git rev-parse --is-inside-work-tree"}
   );
 
-  std::string output = execute_with_output_single_line(commands);
-
-  if (output == "true")
+  if (execute_with_output_single_line(commands) == "true")
     return true;
   else return false;
 }
@@ -367,196 +363,7 @@ bool unset_lock_file (const std::string& path) {
   return true;
 }
 
-// dugit args parser
-bool Session::args_parser (const std::vector<std::string> args) {
-  /*
-    Here we can choose what happens
-    based on the args we get.
-  */
 
-  // Print Help Screen on empty input
-  if (args.empty()) {
-    print_help();
-    return false;
-  }
-
-  uint32_t command = UINT32_MAX;
-  for (uint32_t match = 0; match < dugit_commands.size(); match++) {
-    if (dugit_commands.at(match) == args.front()) {
-      command = match;
-      break;
-    }
-  }
-
-  switch (command) {
-    case 0:
-      if (!sync_session())
-        perror("Could not sync dugit.\n");
-      break;
-    
-    case 1:
-      print_help();
-      break;
-
-    default:
-      break;
-  }
-
-  return true;
-}
-
-// Constructor with args
-Session::Session (const std::vector<std::string>& args) {
-  // Perform Startup Sequence
-  if (!session_startup_sequence())
-    return;
-
-  // Execute args
-  if (args_parser(args) == UINT32_MAX)
-    return;
-}
-
-Session::~Session () {
-  return;
-}
-
-// Startup Sequence
-bool Session::session_startup_sequence () {
-  // Check dugit dependencies
-  if (!check_dugit_external_dependencies())
-    return false;
-
-  // Check git version
-  this->git_version = get_git_version();
-
-  // Get PPID
-  this->ppid = get_ppid();
-
-  // Set Working Path
-  this->working_path = get_cwd();
-
-  // Check if inside git repository
-  if (!is_inside_working_tree(this->working_path))
-    return false;
-
-  // Build Repository Structure
-  this->repository = new Repository(this->working_path);
-
-  return true;
-}
-
-// Sync Session
-bool Session::sync_session () {
-  /*
-    Sync the selected repository
-    on the current branch that is
-    loaded.
-  */
-
-  if (!repository->sync_repository()) {
-    std::string err_msg = "fatal: Could not sync repository at " + repository->toplevel_path + "\n";
-    perror(err_msg.c_str());
-    return false;
-  } return true;
-}
-
-Repository::Repository (const std::string& working_path) {
-  // Perform Startup Sequence
-  if (!initialize(working_path))
-    return;
-}
-
-bool Repository::sync_repository () {
-  /*
-    Sync the repository on the current
-    branch that is loaded.
-
-    Currently very unsafe, does not
-    check for possible merge conflicts.
-  */
-
-  return true;
-}
-
-// Initialize Repository Sequence
-bool Repository::initialize (const std::string& working_path) {
-  /*
-    Here we need to initialize
-    all of the details regarding
-    this repository.
-  */
-
-  // Fetch Repository toplevel_path
-  this->toplevel_path = get_toplevel_path_manually(working_path);
-  if (this->toplevel_path == nullstr)
-    return false;
-
-  // Get Local Branch names
-  std::vector<std::string> local_branch_names = get_local_branch_names(this->toplevel_path);
-
-  // Create Branches
-  for (uint32_t branch = 0; branch < local_branch_names.size(); branch++) {
-    Branch* new_branch = new Branch;
-    new_branch->name = local_branch_names.at(branch);
-    new_branch->is_local = true;
-    new_branch->is_remote = false;
-    this->branches.push_back(new_branch);
-  }
-
-  // Get Remote names
-  std::vector<std::string> remote_names = get_remote_names(this->toplevel_path);
-
-  // Create Remotes
-  for (uint32_t remote = 0; remote < remote_names.size(); remote++) {
-    Remote* new_remote = new Remote;
-    new_remote->name = remote_names.at(remote);
-    new_remote->fetch_links = get_remote_links(this->toplevel_path, remote_names.at(remote), "(fetch)");
-    new_remote->push_links = get_remote_links(this->toplevel_path, remote_names.at(remote), "(push)");
-    this->remotes.push_back(new_remote);
-  }
-
-  // Update Branches to is_remote or create remote-only Branches
-  for (uint32_t remote = 0; remote < this->remotes.size(); remote++) {
-    // Get Remote Branch names
-    std::vector<std::string> remote_branch_names = get_remote_branch_names(this->toplevel_path, this->remotes.at(remote)->name);
-
-    // Filter pre-existing branches
-    for (uint32_t remote_branch = 0; remote_branch < remote_branch_names.size(); remote_branch++) {
-      bool found = false;
-      for (uint32_t local_branch = 0; local_branch < this->branches.size(); local_branch++) {
-        if (remote_branch_names.at(remote_branch) == this->branches.at(local_branch)->name) {
-          this->branches.at(local_branch)->is_remote = true;
-          found = true;
-          break;
-        }
-      } if (!found) {
-        // Create new remote-only branch
-        Branch* new_branch = new Branch;
-        new_branch->name = remote_branch_names.at(remote_branch);
-        new_branch->is_local = false;
-        new_branch->is_remote = true;
-        this->branches.push_back(new_branch);
-      }
-    }
-  }
-
-  // Get current branch
-  std::string current_branch_name = get_current_branch_name(this->toplevel_path);
-  bool found = false;
-  for (uint32_t branch = 0; branch < this->branches.size(); branch++) {
-    if (current_branch_name == this->branches.at(branch)->name) {
-      this->current_branch = this->branches.at(branch);
-      found = true;
-      break;
-    }
-  }
-  
-  // If could not find current branch, we have a problem
-  if (!found)
-    return false;
-
-  return true;
-}
 
 // Fetch Sequence
 bool fetch_remote (const std::string& working_path, const std::string& remote_name, const std::string& branch_name) {
@@ -564,9 +371,7 @@ bool fetch_remote (const std::string& working_path, const std::string& remote_na
     "cd", working_path, "&&", "git", "fetch", remote_name, branch_name
   };
 
-  std::vector<std::string> outputs = execute_with_output_multi_line(commands);
-
-  if (outputs.empty())
+  if (execute_with_output(commands) == nullstr)
     return false;
 
   return true;
@@ -577,9 +382,8 @@ bool merge_nc_nff_a (const std::string& working_path, const std::string& remote_
   std::vector<std::string> commands = {
     "cd", working_path, "&&", "git", "merge", "--no-commit", "--no-ff", "--autostash", remote_name + '/' + branch_name
   };
-  std::vector<std::string> outputs = execute_with_output_multi_line(commands);
 
-  if (outputs.empty())
+  if (execute_with_output(commands) == nullstr)
     return false;
 
   return true;
@@ -591,14 +395,15 @@ bool push_remote (const std::string& working_path, const std::string& remote_nam
     "cd", working_path, "&&", "git", "push", remote_name, branch_name
   };
 
-  std::vector<std::string> outputs = execute_with_output_multi_line(commands);
-
-  if (outputs.empty())
+  if (execute_with_output(commands) == nullstr)
     return false;
 
   return true;
 }
 
-void print_help () {
-  std::cout << "h" << std::endl;
+// Git Status
+std::string get_status (const std::string& working_path) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "status"
+  }; return execute_with_output(commands);
 }

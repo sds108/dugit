@@ -1,0 +1,5 @@
+add_library(Session STATIC session.h session.cpp)
+set_target_properties(Session PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(Session PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(Session PUBLIC Include)
+target_link_libraries(Session PUBLIC Git)

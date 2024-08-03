@@ -23,6 +23,7 @@ void run_tests () {
   t_set_lock_file();
   t_check_lock_file();
   t_unset_lock_file();
+  t_fetch_remote();
 }
 
 // Definitions
@@ -92,12 +93,12 @@ void t_get_git_version () {
 }
 
 void t_get_remote_names () {
-  std::vector<std::string> remote_names = get_remote_names(get_cwd());
+  std::string remote_names = get_remote_names(get_cwd());
 
-  if (remote_names.empty())
+  if (remote_names == nullstr)
     std::cout << "t_get_remote_names: NULL\n";
   else {
-    for (const auto& name : remote_names) {
+    for (const auto& name : get_lines_from_string(remote_names)) {
       std::cout << "t_get_remote_names: " << name << " => ";
       for (const auto& c : name) {
         std::cout << uint32_t(c) << ", ";
@@ -107,20 +108,20 @@ void t_get_remote_names () {
 }
 
 void t_get_remote_links () {
-  std::vector<std::string> remote_names = get_remote_names(get_cwd());
+  std::string remote_names = get_remote_names(get_cwd());
 
-  if (remote_names.empty())
+  if (remote_names == nullstr)
     std::cout << "t_get_remote_links: NULL\n";
   else {
-    for (const auto& remote_name : remote_names) {
-      std::vector<std::string> remote_push_links = get_remote_links(get_cwd(), remote_name, "(push)");
-      std::vector<std::string> remote_fetch_links = get_remote_links(get_cwd(), remote_name, "(fetch)");
+    for (const auto& remote_name : get_lines_from_string(remote_names)) {
+      std::string remote_push_links = get_remote_links(get_cwd(), remote_name, "(push)");
+      std::string remote_fetch_links = get_remote_links(get_cwd(), remote_name, "(fetch)");
 
-      if (remote_push_links.empty())
+      if (remote_push_links == nullstr)
         std::cout << "t_get_remote_links: " << remote_name << " (push) NULL\n";
       else {
         std::cout << "t_get_remote_links: " << remote_name << " (push): ";
-        for (const auto& link : remote_push_links) {
+        for (const auto& link : get_lines_from_string(remote_push_links)) {
           std::cout << link << " length: "<< link.length() << " => ";
           for (const auto& c : link) {
             std::cout << uint32_t(c) << ", ";
@@ -128,11 +129,11 @@ void t_get_remote_links () {
         }
       }
 
-      if (remote_fetch_links.empty())
+      if (remote_fetch_links == nullstr)
         std::cout << "t_get_remote_links: " << remote_name << " (fetch) NULL\n";
       else {
         std::cout << "t_get_remote_links: " << remote_name << " (fetch): ";
-        for (const auto& link : remote_fetch_links) {
+        for (const auto& link : get_lines_from_string(remote_fetch_links)) {
           std::cout << link << " length: "<< link.length() << " => ";
           for (const auto& c : link) {
             std::cout << uint32_t(c) << ", ";
@@ -144,13 +145,13 @@ void t_get_remote_links () {
 }
 
 void t_get_local_branch_names () {
-  std::vector<std::string> branch_names = get_local_branch_names(get_cwd());
+  std::string branch_names = get_local_branch_names(get_cwd());
 
-  if (branch_names.empty())
+  if (branch_names == nullstr)
     std::cout << "t_get_local_branch_names: NULL\n";
   else {
     std::cout << "t_get_local_branch_names: ";
-    for (const auto& branch_name : branch_names) {
+    for (const auto& branch_name : get_lines_from_string(branch_names)) {
       std::cout << branch_name << " length: "<< branch_name.length() << " => ";
       for (auto c : branch_name) {
         std::cout << uint32_t(c) << ", ";
@@ -160,19 +161,19 @@ void t_get_local_branch_names () {
 }
 
 void t_get_remote_branch_names () {
-  std::vector<std::string> remote_names = get_remote_names(get_cwd());
+  std::string remote_names = get_remote_names(get_cwd());
 
-  if (remote_names.empty())
+  if (remote_names == nullstr)
     std::cout << "t_get_remote_branch_names: NULL\n";
   else {
-    for (const auto& remote_name : remote_names) {
-      std::vector<std::string> branch_names = get_remote_branch_names(get_cwd(), remote_name);
+    for (const auto& remote_name : get_lines_from_string(remote_names)) {
+      std::string branch_names = get_remote_branch_names(get_cwd(), remote_name);
 
-      if (branch_names.empty())
+      if (branch_names == nullstr)
         std::cout << "t_get_remote_branch_names: " << remote_name << " NULL\n";
       else {
         std::cout << "t_get_remote_branch_names: " << remote_name << " ";
-        for (const auto& branch_name : branch_names) {
+        for (const auto& branch_name : get_lines_from_string(branch_names)) {
           std::cout << branch_name << " length: "<< branch_name.length() << " => ";
           for (const auto& c : branch_name) {
             std::cout << uint32_t(c) << ", ";
@@ -333,4 +334,19 @@ void t_check_dugit_external_dependencies () {
   if (check_dugit_external_dependencies())
     std::cout << "t_check_dugit_external_dependencies: SUCCESS\n";
   else std::cout << "t_check_dugit_external_dependencies: NULL\n";
+}
+
+void t_fetch_remote () {
+  std::string remote_names = get_remote_names(get_cwd());
+  std::string current_branch_name = get_current_branch_name(get_cwd());
+
+  if (current_branch_name == nullstr || remote_names == nullstr)
+    std::cout << "t_fetch_remote: NULL\n";
+  else {
+    for (const auto& remote_name : get_lines_from_string(remote_names)) {
+      if (fetch_remote(get_cwd(), remote_name, current_branch_name))
+        std::cout << "t_fetch_remote: " << remote_name << "/" << current_branch_name << " SUCCESS"<< std::endl;
+      else std::cout << "t_fetch_remote: " << remote_name << "/" << current_branch_name << " NULL"<< std::endl;
+    }
+  }
 }

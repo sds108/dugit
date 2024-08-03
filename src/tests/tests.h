@@ -5,6 +5,7 @@
 
 #include "include.h"
 #include "git.h"
+#include "session.h"
 
 // Test runner
 void run_tests();
@@ -31,5 +32,6 @@ void t_check_lock_file();
 void t_set_lock_file();
 void t_unset_lock_file();
 void t_check_dugit_external_dependencies();
+void t_fetch_remote();
 
 #endif

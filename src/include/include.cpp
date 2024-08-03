@@ -67,8 +67,9 @@ uint32_t execute_without_output (const std::string& command) {
 
     int status;
     waitpid(pid, &status, 0);
+    int exit_status = WEXITSTATUS(status);
 
-    if (!stderr_stream.str().empty()) {
+    if (exit_status != 0) {
       std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + '\n';
       // perror(err_msg.c_str());
       return 1;
@@ -136,18 +137,22 @@ std::string execute_with_output (const std::string& command) {
 
     int status;
     waitpid(pid, &status, 0);
+    int exit_status = WEXITSTATUS(status);
 
-    if (!stderr_stream.str().empty()) {
-      std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + '\n';
+    if (exit_status != 0) {
+      std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + "\nOUTPUT: " + stdout_stream.str() + '\n';
       // perror(err_msg.c_str());
       return nullstr;
     }
 
     // Filter out special characters
-    std::string stdout_str = stdout_stream.str();
+    std::string out_str = stdout_stream.str();
     std::string output;
 
-    for (const auto& c : stdout_str) {
+    if (out_str.empty())
+      out_str = stderr_stream.str();
+    
+    for (const auto& c : out_str) {
       if (c < 32 && c != 10) continue;
       else output += c;
     }
@@ -208,7 +213,7 @@ std::vector<std::string> execute_with_output_multi_line(const std::string& comma
 
   // If we receive a nullstr, return an empty vector
   if (command_out == nullstr)
-    return std::vector<std::string>();
+    return {nullstr};
 
   return get_lines_from_string(command_out);
 }
@@ -232,6 +237,18 @@ std::vector<std::string> get_lines_from_string(const std::string& s) {
   while (std::getline(ss, line, '\n')) {
     lines.push_back(line);
   } return lines;
+}
+
+// Get string from lines
+std::string get_string_from_lines (const std::vector<std::string> lines) {
+  // Concatenate the command vector
+  std::string concatenated;
+
+  for (const auto& line : lines) {
+    concatenated += line + '\n';
+  }
+
+  return concatenated;
 }
 
 std::string get_executable_path (const std::string& exec_name) {

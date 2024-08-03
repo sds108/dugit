@@ -31,6 +31,8 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <map>
+#include <functional>
 
 // Special custom includes and defines
 #ifndef nullstr
@@ -61,6 +63,9 @@ std::vector<std::string> execute_with_output_multi_line(const std::vector<std::s
 
 // Get lines from string
 std::vector<std::string> get_lines_from_string(const std::string& s);
+
+// Get string from lines
+std::string get_string_from_lines(const std::vector<std::string> lines);
 
 // Trim front of a string
 bool string_trim_front(std::string& s, const unsigned long long len);
