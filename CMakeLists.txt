@@ -4,6 +4,9 @@ project(dugit LANGUAGES CXX)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 14)
 
+# specify build type
+set(CMAKE_BUILD_TYPE Debug)
+
 # add subdirectory
 add_subdirectory(src)
 

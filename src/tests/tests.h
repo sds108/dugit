@@ -14,6 +14,7 @@ void run_tests();
 void t_get_shell();
 void t_get_ppid();
 void t_get_cwd();
+void t_get_pwd();
 void t_get_exec_path();
 void t_get_git_version();
 void t_get_remote_names();

@@ -1,13 +1,10 @@
 #include "include.h"
 
-std::string get_shell () {
-  const std::string shell = getenv("SHELL");
-  if (!shell.empty())
-    return shell;
-  return nullstr;
+char* get_shell () {
+  return getenv("SHELL"); // envariables do not have to be freed
 }
 
-std::string get_ppid () {
+std::string* get_ppid () {
   /*
     To prevent race conditions
     between different terminal
@@ -21,16 +18,21 @@ std::string get_ppid () {
   return execute_with_output_single_line(command);
 }
 
-std::string get_cwd () {
-  char buffer[4096];
+std::string* get_cwd () {
+  char buffer[8192];
   if (getcwd(buffer, sizeof(buffer)) == NULL)
-    return nullstr;
-  return buffer;
+    return NULL;
+  return new std::string(buffer);
 }
 
-uint32_t execute_without_output (const std::string& command) {
-  std::string shell = get_shell();
-  if (shell == nullstr)
+std::string* get_pwd () {
+  std::string command = "pwd";
+  return execute_with_output_single_line(command);
+}
+
+int32_t execute_without_output (const std::string& command) {
+  char* shell = get_shell(); // envariables do not have to be freed
+  if (shell == NULL)
     return 1;
 
   int stderr_pipe[2];
@@ -50,7 +52,7 @@ uint32_t execute_without_output (const std::string& command) {
     dup2(stderr_pipe[1], STDERR_FILENO);
     close(stderr_pipe[1]);
 
-    execl(shell.c_str(), shell.c_str(), "-c", command.c_str(), (char *) NULL);
+    execl(shell, shell, "-c", command.c_str(), (char *) NULL);
     _exit(EXIT_FAILURE);
   } else {
     // Parent process
@@ -79,7 +81,7 @@ uint32_t execute_without_output (const std::string& command) {
   }
 }
 
-uint32_t execute_without_output (const std::vector<std::string>& commands) {
+int32_t execute_without_output (const std::vector<std::string>& commands) {
   // Concatenate the command vector
   std::string concatenated;
 
@@ -90,22 +92,22 @@ uint32_t execute_without_output (const std::vector<std::string>& commands) {
   return execute_without_output(concatenated);
 }
 
-std::string execute_with_output (const std::string& command) {
-  std::string shell = get_shell();
-  if (shell == nullstr)
-    return nullstr;
+std::string* execute_with_output (const std::string& command) {
+  char* shell = get_shell(); // envariables do not have to be freed
+  if (shell == NULL)
+    return NULL;
   
   int stdout_pipe[2];
   int stderr_pipe[2];
   if (pipe(stdout_pipe) != 0 || pipe(stderr_pipe) != 0) {
     perror("pipe");
-    return nullstr;
+    return NULL;
   }
 
   pid_t pid = fork();
   if (pid == -1) {
     perror("fork");
-    return nullstr;
+    return NULL;
   } else if (pid == 0) {
     // Child process
     close(stdout_pipe[0]);
@@ -115,7 +117,7 @@ std::string execute_with_output (const std::string& command) {
     close(stdout_pipe[1]);
     close(stderr_pipe[1]);
 
-    execl(shell.c_str(), shell.c_str(), "-c", command.c_str(), (char *) NULL);
+    execl(shell, shell, "-c", command.c_str(), (char *) NULL);
     _exit(EXIT_FAILURE);
   } else {
     // Parent process
@@ -142,26 +144,30 @@ std::string execute_with_output (const std::string& command) {
     if (exit_status != 0) {
       std::string err_msg = "\nCOMMAND: " + command + "\nERROR: " + stderr_stream.str() + "\nOUTPUT: " + stdout_stream.str() + '\n';
       // perror(err_msg.c_str());
-      return nullstr;
+      return NULL;
     }
 
     // Filter out special characters
     std::string out_str = stdout_stream.str();
-    std::string output;
+    std::string* output = new std::string();
 
     if (out_str.empty())
       out_str = stderr_stream.str();
     
     for (const auto& c : out_str) {
       if (c < 32 && c != 10) continue;
-      else output += c;
+      else (*output) += c;
     }
+
+    // std::cout << "\nCOMMAND " << command << " : ";
+    // for (const auto& c : output)
+    //   std::cout << int(c) << ", ";
 
     return output;
   }
 }
 
-std::string execute_with_output(const std::vector<std::string>& commands) {
+std::string* execute_with_output(const std::vector<std::string>& commands) {
   // Concatenate the command vector
   std::string concatenated;
 
@@ -173,7 +179,7 @@ std::string execute_with_output(const std::vector<std::string>& commands) {
 }
 
 // Single line out
-std::string execute_with_output_single_line (const std::string& command) {
+std::string* execute_with_output_single_line (const std::string& command) {
   /*
     A lot of functions expect a single
     line output, for which the extraction
@@ -181,22 +187,28 @@ std::string execute_with_output_single_line (const std::string& command) {
   */
 
   // Get output
-  std::string command_out = execute_with_output(command);
+  std::string* command_out = execute_with_output(command);
 
   // If we receive a nullstr, return nullstr
-  if (command_out == nullstr)
-    return nullstr;
+  if (command_out == NULL)
+    return NULL;
+
+  // If we receive an empty string, return empty string
+  if (command_out->length() == 0)
+    return command_out;
 
   // Delimit string
-  std::vector<std::string> lines = get_lines_from_string(command_out);
+  std::vector<std::string> lines = get_lines_from_string(*command_out);
+  delete(command_out);
 
-  if (lines.empty() || lines.size() > 1)
-    return nullstr;
+  // More than expected
+  if (lines.size() > 1)
+    return NULL;
 
-  return lines.front();
+  return new std::string(lines.front());
 }
 
-std::string execute_with_output_single_line (const std::vector<std::string>& commands) {
+std::string* execute_with_output_single_line (const std::vector<std::string>& commands) {
   // Concatenate the command vector
   std::string concatenated;
 
@@ -207,17 +219,20 @@ std::string execute_with_output_single_line (const std::vector<std::string>& com
   return execute_with_output_single_line(concatenated);
 }
 
-// Multi line out
+// Multi line out (Do not use)
 std::vector<std::string> execute_with_output_multi_line(const std::string& command) {
-  std::string command_out = execute_with_output(command);
+  std::string* command_out = execute_with_output(command);
 
   // If we receive a nullstr, return an empty vector
-  if (command_out == nullstr)
-    return {nullstr};
+  if (command_out == NULL)
+    return {};
 
-  return get_lines_from_string(command_out);
+  std::vector<std::string> output = get_lines_from_string(*command_out);
+  delete(command_out);
+  return output;
 }
 
+// Do not use
 std::vector<std::string> execute_with_output_multi_line (const std::vector<std::string>& commands) {
   // Concatenate the command vector
   std::string concatenated;
@@ -240,7 +255,7 @@ std::vector<std::string> get_lines_from_string(const std::string& s) {
 }
 
 // Get string from lines
-std::string get_string_from_lines (const std::vector<std::string> lines) {
+std::string get_string_from_lines (const std::vector<std::string>& lines) {
   // Concatenate the command vector
   std::string concatenated;
 
@@ -251,7 +266,7 @@ std::string get_string_from_lines (const std::vector<std::string> lines) {
   return concatenated;
 }
 
-std::string get_executable_path (const std::string& exec_name) {
+std::string* get_executable_path (const std::string& exec_name) {
   /*
     For applications, certain
     dependencies may be required
@@ -265,8 +280,12 @@ std::string get_executable_path (const std::string& exec_name) {
   */
 
   std::vector<std::string> commands({"which",exec_name});
-
-  return execute_with_output_single_line(commands);
+  std::string* command_out = execute_with_output_single_line(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "get_executable_path() ==> Executable does not exist: " + exec_name + '\n';
+    perror(err_msg.c_str());
+    return NULL;
+  } return command_out;
 }
 
 // Trim front of a string
@@ -326,14 +345,17 @@ bool strings_trim_rears(std::vector<std::string>& lines, const unsigned long lon
 // Check if a directory exists
 bool dir_exists (const std::string& path) {
   std::vector<std::string> commands(
-    {"[ -d", '\"' + path + '\"', "]", "&&", "echo \"true\"", "||", "echo \"false\""}
+    {"[ -d", '\"' + path + '\"', "]"}
   );
 
-  std::string output = execute_with_output_single_line(commands);
-
-  if (output == "true")
-    return true;
-  else return false;
+  std::string* output = execute_with_output(commands);
+  if (output == NULL) {
+    std::string err_msg = "dir_exists() ==> Directory does not exist: " + path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  }
+  delete(output);
+  return true;
 }
 
 // Create directory in path
@@ -342,7 +364,13 @@ bool create_dir (const std::string& path, const std::string& name) {
     {"cd",path,"&&","mkdir",name}
   );
 
-  return execute_without_output(commands);
+  int32_t err_code = execute_without_output(commands);
+  if (err_code == 0)
+    return true;
+  
+  std::string err_msg = "create_dir() ==> Could not create directory: " + name + ", in path: " + path + ", with Error Code: " + std::to_string(err_code) + '\n';
+  perror(err_msg.c_str());
+  return false;
 }
 
 // Check if a file exists
@@ -351,7 +379,10 @@ bool file_exists (const std::string& path) {
 
   if (file.good())
     return true;
-  else return false;
+  
+  std::string err_msg = "file_exists() ==> File does not exist: " + path + '\n';
+  perror(err_msg.c_str());
+  return false;
 }
 
 // Check if line exists in file
@@ -364,7 +395,12 @@ bool line_in_file_exists (const std::string& path, const std::string& s) {
       if (line == s)
         return true;
     } file.close();
-  } else perror("Failed to open file.\n");
+    std::string err_msg = "line_in_file_exists() ==> Could not find line \"" + s + "\" in file: " + path + '\n';
+    perror(err_msg.c_str());
+  } else {
+    std::string err_msg = "line_in_file_exists() ==> File does not exist: " + path + '\n';
+    perror(err_msg.c_str());
+  }
 
   return false;
 }
@@ -379,7 +415,11 @@ bool append_line_to_file (const std::string& path, const std::string& s) {
     while (std::getline(infile, line))
       last_line = line;
     infile.close();
-  } else perror("Failed to open file.\n");
+  } else {
+    std::string err_msg = "append_line_to_file() ==> Failed to open file: " + path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  }
 
   std::ofstream file;
   file.open(path, std::ios::app);
@@ -390,13 +430,15 @@ bool append_line_to_file (const std::string& path, const std::string& s) {
     file << s;
     file.close();
     return true;
-  } else perror("Failed to open file.\n");
-  
+  }
+
+  std::string err_msg = "append_line_to_file() ==> Failed to open file: " + path + '\n';
+  perror(err_msg.c_str());
   return false;
 }
 
-// Return position of line in file (return UINT_MAX otherwise)
-uint32_t line_pos_in_file (const std::string& path, const std::string& s) {
+// Return position of line in file (return -1 otherwise)
+int32_t line_pos_in_file (const std::string& path, const std::string& s) {
   std::ifstream file(path);
   std::string line;
   uint32_t pos = 0;
@@ -406,9 +448,15 @@ uint32_t line_pos_in_file (const std::string& path, const std::string& s) {
       if (line == s) return pos;
       pos++;
     } file.close();
-  } else perror("Failed to open file.\n");
+  } else {
+    std::string err_msg = "line_pos_in_file() ==> Failed to open file: " + path + '\n';
+    perror(err_msg.c_str());
+    return -1;
+  }
 
-  return UINT32_MAX;
+  std::string err_msg = "line_pos_in_file() ==> Could not find line \"" + s + "\" in file: " + path + '\n';
+  perror(err_msg.c_str());
+  return -1;
 }
 
 // Lock file using flock
@@ -416,12 +464,14 @@ bool lock_file (const std::string& path) {
   int file_descriptor = open(path.c_str(), O_CREAT | O_RDWR, 0666);
 
   if (file_descriptor == -1) {
-    perror("Failed to open file.\n");
+    std::string err_msg = "lock_file() ==> Failed to open file: " + path + '\n';
+    perror(err_msg.c_str());
     return false;
   }
 
   if (flock(file_descriptor, LOCK_EX) == -1) {
-    perror("Failed to lock file.\n");
+    std::string err_msg = "lock_file() ==> Failed to lock file: " + path + '\n';
+    perror(err_msg.c_str());
     close(file_descriptor);
     return false;
   }
@@ -434,12 +484,14 @@ bool unlock_file (const std::string& path) {
   int file_descriptor = open(path.c_str(), O_CREAT | O_RDWR, 0666);
 
   if (file_descriptor == -1) {
-    perror("Failed to open file.\n");
+    std::string err_msg = "unlock_file() ==> Failed to open file: " + path + '\n';
+    perror(err_msg.c_str());
     return false;
   }
 
   if (flock(file_descriptor, LOCK_UN) == -1) {
-    perror("Failed to unlock file.\n");
+    std::string err_msg = "unlock_file() ==> Failed to unlock file: " + path + '\n';
+    perror(err_msg.c_str());
     close(file_descriptor);
     return false;
   }
@@ -453,7 +505,8 @@ bool clear_file (const std::string& path) {
   output_filestream.open(path, std::ofstream::out | std::ofstream::trunc);
 
   if (!output_filestream) {
-    perror("Failed to open file.\n");
+    std::string err_msg = "clear_file() ==> Failed to open file: " + path + '\n';
+    perror(err_msg.c_str());
     return false;
   }
   
@@ -481,8 +534,10 @@ bool check_external_dependencies (const std::vector<std::string>& dependencies) 
   std::string err_msg;
 
   for (const auto& dependency : dependencies) {
-    if (get_executable_path(dependency) == nullstr)
+    std::string* dependency_path = get_executable_path(dependency);
+    if (dependency_path == NULL)
       err_msg += "missing dependency: " + dependency + '\n';
+    else delete(dependency_path);
   }
 
   if (!err_msg.empty()) {

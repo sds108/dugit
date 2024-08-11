@@ -33,31 +33,29 @@
 #include <sys/wait.h>
 #include <map>
 #include <functional>
-
-// Special custom includes and defines
-#ifndef nullstr
-#define nullstr "\0"
-#endif
+#include <chrono>
+#include <iomanip>
 
 // Useful functions
-std::string get_shell();
-std::string get_ppid();
-std::string get_cwd();
-std::string get_executable_path(const std::string& exec_name);
+char* get_shell();
+std::string* get_ppid();
+std::string* get_cwd();
+std::string* get_pwd();
+std::string* get_executable_path(const std::string& exec_name);
 
 // Run command
-uint32_t execute_without_output(const std::string& command);
-uint32_t execute_without_output(const std::vector<std::string>& commands);
+int32_t execute_without_output(const std::string& command);
+int32_t execute_without_output(const std::vector<std::string>& commands);
 
 // Run command and get output
-std::string execute_with_output(const std::string& command);
-std::string execute_with_output(const std::vector<std::string>& commands);
+std::string* execute_with_output(const std::string& command);
+std::string* execute_with_output(const std::vector<std::string>& commands);
 
 // Single line out
-std::string execute_with_output_single_line(const std::string& command);
-std::string execute_with_output_single_line(const std::vector<std::string>& commands);
+std::string* execute_with_output_single_line(const std::string& command);
+std::string* execute_with_output_single_line(const std::vector<std::string>& commands);
 
-// Multi line out
+// Multi line out (Do not use)
 std::vector<std::string> execute_with_output_multi_line(const std::string& command);
 std::vector<std::string> execute_with_output_multi_line(const std::vector<std::string>& commands);
 
@@ -65,7 +63,7 @@ std::vector<std::string> execute_with_output_multi_line(const std::vector<std::s
 std::vector<std::string> get_lines_from_string(const std::string& s);
 
 // Get string from lines
-std::string get_string_from_lines(const std::vector<std::string> lines);
+std::string get_string_from_lines(const std::vector<std::string>& lines);
 
 // Trim front of a string
 bool string_trim_front(std::string& s, const unsigned long long len);
@@ -90,8 +88,8 @@ bool line_in_file_exists(const std::string& path, const std::string& s);
 // Append line to a file
 bool append_line_to_file(const std::string& path, const std::string& s);
 
-// Return position of line in file (return UINT_MAX otherwise)
-uint32_t line_pos_in_file(const std::string& path, const std::string& s);
+// Return position of line in file (return -1 otherwise)
+int32_t line_pos_in_file(const std::string& path, const std::string& s);
 
 // Lock file using flock
 bool lock_file(const std::string& path);

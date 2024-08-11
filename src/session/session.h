@@ -48,6 +48,9 @@ struct Session {
   // dugit args parser
   bool args_parser(const std::vector<std::string>& args);
 
+  // Push_changes
+  bool push_session();
+
   // Sync Session
   bool sync_session();
 };
@@ -62,6 +65,9 @@ struct Repository {
 
   // The local path to the repository
   std::string toplevel_path;
+
+  // .dugit path
+  std::string dugit_path;
 
   // Current branch
   Branch* current_branch;
@@ -80,6 +86,9 @@ struct Repository {
   
   // Initialize Repository Sequence
   bool initialize(const std::string& working_path);
+
+  // Push Changes
+  bool auto_push();
 
   // Sync Repository
   bool sync_repository();
