@@ -488,8 +488,18 @@ bool merge_nc_nff_a (const std::string& working_path, const std::string& remote_
     std::string err_msg = "merge_nc_nff_a() ==> Could not merge with " + remote_name + '/' + branch_name + '\n';
     perror(err_msg.c_str());
 
-    // Abort merge before moving on
-    merge_abort(working_path);
+    std::string* status = get_status(working_path);
+    if (status != NULL) {
+      std::cerr << std::endl << *status << std::endl;
+      delete(status);
+    }
+
+    std::string* diff = get_diff_uncached(working_path);
+    if (diff != NULL) {
+      std::cerr << std::endl << *diff << std::endl;
+      delete(diff);
+    }
+
     return false;
   }
 
@@ -510,6 +520,8 @@ bool merge_abort (const std::string& working_path) {
     return false;
   }
 
+  std::string err_msg = "merge_abort() ==> Merge aborted.\n";
+  perror(err_msg.c_str());
   delete(command_out);
   return true;
 }
@@ -554,6 +566,20 @@ std::string* get_diff_head (const std::string& working_path) {
   std::string* command_out = execute_with_output(commands);
   if (command_out == NULL) {
     std::string err_msg = "get_diff_head() ==> Could not get git diff HEAD at path: " + working_path + '\n';
+    perror(err_msg.c_str());
+    return NULL;
+  } return command_out;
+}
+
+// Git Diff with HEAD and Remote Branch
+std::string* get_diff_head_remote (const std::string& working_path, const std::string& remote_branch) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "diff", "HEAD", remote_branch
+  };
+
+  std::string* command_out = execute_with_output(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "get_diff_head_remote() ==> Could not get git diff HEAD " + remote_branch + " at path: " + working_path + '\n';
     perror(err_msg.c_str());
     return NULL;
   } return command_out;

@@ -97,6 +97,9 @@ std::string* get_status(const std::string& working_path);
 // Git Diff Head
 std::string* get_diff_head(const std::string& working_path);
 
+// Git Diff with HEAD and Remote Branch
+std::string* get_diff_head_remote(const std::string& working_path, const std::string& remote_branch);
+
 // Git Diff cached
 std::string* get_diff_cached(const std::string& working_path);
 

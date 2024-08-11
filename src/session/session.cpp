@@ -12,9 +12,16 @@ Session::Session (const std::vector<std::string>& args) {
 }
 
 Session::~Session () {
-  if (this->repository != NULL)
-    delete(this->repository);
-  return;
+  // Unset lock
+  if (this->lock_secured)
+    unset_lock_file(this->dugit_path + "/.lock");
+
+  // Remove branches and remotes
+  for (const auto& branch : this->branches)
+    delete(branch);
+
+  for (const auto& remote : this->remotes)
+    delete(remote);
 }
 
 // Print dugit help
@@ -38,16 +45,38 @@ bool Session::args_parser (const std::vector<std::string>& args) {
 
   if (args.front() == "help")
     print_help();
-  else if (args.front() == "sync")
-    sync_session();
-  else if (args.front() == "push")
-    push_session();
-
-  return true;
+  else if (args.front() == "sync") {
+    if (!this->sync_repository(false)) {
+      std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
+      perror(err_msg.c_str());
+      return false;
+    }
+  } else if (args.front() == "trysync") {
+    if (!this->sync_repository(true)) {
+      std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
+      perror(err_msg.c_str());
+      return false;
+    }
+  } else if (args.front() == "push") {
+    if (!this->auto_push(false)) {
+      std::string err_msg = "fatal: Could not push changes for repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
+      perror(err_msg.c_str());
+      return false;
+    }
+  } else if (args.front() == "trypush") {
+    if (!this->auto_push(true)) {
+      std::string err_msg = "fatal: Could not push changes for repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
+      perror(err_msg.c_str());
+      return false;
+    }
+  } return true;
 }
 
 // Startup Sequence
 bool Session::session_startup_sequence () {
+  // Set lock secured status
+  this->lock_secured = false;
+
   // Check dugit dependencies
   if (!check_dugit_external_dependencies())
     return false;
@@ -80,177 +109,35 @@ bool Session::session_startup_sequence () {
   if (!is_inside_working_tree(this->working_path))
     return false;
 
-  // Build Repository Structure
-  this->repository = new Repository(this->working_path);
-
-  return true;
-}
-
-// Push Session
-bool Session::push_session () {
-  if (!repository->auto_push()) {
-    std::string err_msg = "fatal: Could not push changes for repository at " + repository->toplevel_path + "\n";
-    perror(err_msg.c_str());
-    return false;
-  } return true;
-}
-
-// Sync Session
-bool Session::sync_session () {
-  /*
-    Sync the selected repository
-    on the current branch that is
-    loaded.
-  */
-
-  if (!repository->sync_repository()) {
-    std::string err_msg = "fatal: Could not sync repository at " + repository->toplevel_path + "\n";
-    perror(err_msg.c_str());
-    return false;
-  } return true;
-}
-
-Repository::Repository (const std::string& working_path) {
-  // Perform Startup Sequence
-  if (!initialize(working_path))
-    return;
-}
-
-Repository::~Repository () {
-  // Unlock .dugit lock
-  if (!unset_lock_file(this->dugit_path + "/.lock"))
-    std::cerr << this->dugit_path << "/.lock" << std::endl;
-}
-
-bool Repository::auto_push () {
-  std::string* diff;
-
-  // Check if any changes to stage
-  diff = get_diff_uncached(this->toplevel_path);
-  if (diff != NULL) {
-    bool diff_empty = diff->empty();
-    delete(diff);
-
-    // Stage Changes
-    if (!diff_empty && !stage_changes(this->toplevel_path))
-      return false;
-  }
-
-  // Check if anything to commit
-  diff = get_diff_cached(this->toplevel_path);
-  if (diff != NULL) {
-    bool diff_empty = diff->empty();
-    delete(diff);
-    
-    // Commit staged changes
-    if (!diff_empty && !commit_changes(this->toplevel_path))
-      return false;
-  }
-
-  // Use Sync for the rest of the procedure
-  if (!this->sync_repository())
-    return false;
-
-  return true;
-}
-
-bool Repository::sync_repository () {
-  /*
-    Sync the repository on the current
-    branch that is loaded.
-
-    Currently very unsafe, does not
-    check for possible merge conflicts.
-  */
-
-  // Fetch and merge
-  for (const auto& remote : this->remotes) {
-    std::cout << "Fetching from " << remote->name << '/' << this->current_branch->name << std::endl;
-    if (!fetch_remote(this->toplevel_path, remote->name, this->current_branch->name)) 
-      continue;
-
-    std::cout << "Merging " << remote->name << '/' << this->current_branch->name << std::endl;
-    if (!merge_nc_nff_a(this->toplevel_path, remote->name, this->current_branch->name))
-      return false;
-  }
-
-  // Print Current Status
-  std::string* status = get_status(this->toplevel_path);
-  if (status == NULL)
-    return false;
-  std::cout << "\nCurrent Status:\n" << *status << std::endl;
-  delete(status);
-
-  // Ask whether to commit these merges
-  std::cout << "\nWould you like to go ahead an commit these merges?\nTo view the differences with HEAD, type and submit \"diff\"\nOtherwise, Press Enter to continue to commit" << std::endl;
-  std::string input;
-  std::getline(std::cin, input);
-  if (input == "diff") {
-    std::string* diff = get_diff_head(this->toplevel_path);
-    if (diff != NULL) {
-      std::cout << *diff << std::endl;
-      delete(diff);
-    }
-  }
-  
-  // Otherwise, any other input will cancel the action
-  if (!input.empty())
-    return false;
-
-  // Check if anything to commit
-  std::string* diff;
-  diff = get_diff_cached(this->toplevel_path);
-  if (diff != NULL) {
-    bool diff_empty = diff->empty();
-    delete(diff);
-    if (!diff_empty)
-      // Commit merge
-      if (!commit_merge(this->toplevel_path))
-        return false;
-  }
-
-  // Push merged
-  for (const auto& remote : this->remotes) {
-    std::cout << "Pushing to " << remote->name << '/' << this->current_branch->name << std::endl;
-    if (!push_remote(this->toplevel_path, remote->name, this->current_branch->name))
-      return false;
-  }
-
-  return true;
-}
-
-// Initialize Repository Sequence
-bool Repository::initialize (const std::string& working_path) {
-  /*
-    Here we need to initialize
-    all of the details regarding
-    this repository.
-  */
-
-  // Fetch Repository toplevel_path
-  std::string* toplevel_path = get_toplevel_path_manually(working_path);
+    // Fetch Repository toplevel_path
+  std::string* toplevel_path = get_toplevel_path_manually(this->working_path);
   if (toplevel_path == NULL)
     return false;
 
   this->toplevel_path = *toplevel_path;
   delete(toplevel_path);
 
-  // Create .dugit directory
-  if (!create_dugit_directory(this->toplevel_path))
-    return false;
-
-  std::string* dugit_path = get_toplevel_path_manually(working_path);
+  std::string* dugit_path = get_dugit_path(this->working_path);
+  if (dugit_path == NULL)
+    // Create .dugit directory
+    if (!create_dugit_directory(this->toplevel_path))
+      return false;
+    // Try again
+    else dugit_path = get_dugit_path(this->working_path);
+  
+  // If failed this time, quit
   if (dugit_path == NULL)
     return false;
 
   this->dugit_path = *dugit_path;
   delete(dugit_path);
 
-  std::cout << "DUgit path " << this->dugit_path << std::endl;
-
   // Acquire .dugit lock
-  if (!set_lock_file(this->dugit_path + "/.lock", "fdj"))
+  if (!set_lock_file(this->dugit_path + "/.lock", this->ppid))
     return false;
+
+  // Set lock secured status
+  this->lock_secured = true;
 
   // Get Local Branch names
   std::string* local_branch_names_str = get_local_branch_names(this->toplevel_path);
@@ -340,3 +227,101 @@ bool Repository::initialize (const std::string& working_path) {
   return true;
 }
 
+bool Session::auto_push (bool trypush) {
+  std::string* diff;
+
+  // Check if any changes to stage
+  diff = get_diff_uncached(this->toplevel_path);
+  if (diff != NULL) {
+    bool diff_empty = diff->empty();
+    delete(diff);
+
+    // Stage Changes
+    if (!diff_empty && !stage_changes(this->toplevel_path))
+      return false;
+  }
+
+  // Check if anything to commit
+  diff = get_diff_cached(this->toplevel_path);
+  if (diff != NULL) {
+    bool diff_empty = diff->empty();
+    delete(diff);
+    
+    // Commit staged changes
+    if (!diff_empty && !commit_changes(this->toplevel_path))
+      return false;
+  }
+
+  // Use Sync for the rest of the procedure
+  if (!this->sync_repository(trypush))
+    return false;
+
+  return true;
+}
+
+bool Session::sync_repository (bool trysync) {
+  /*
+    Sync the repository on the current
+    branch that is loaded.
+
+    Currently very unsafe, does not
+    check for possible merge conflicts.
+  */
+
+  // Fetch and merge
+  for (const auto& remote : this->remotes) {
+    std::cout << "Fetching from " << remote->name << '/' << this->current_branch->name << std::endl;
+    if (!fetch_remote(this->toplevel_path, remote->name, this->current_branch->name)) 
+      continue;
+
+    std::cout << "Merging " << remote->name << '/' << this->current_branch->name << std::endl;
+    if (!merge_nc_nff_a(this->toplevel_path, remote->name, this->current_branch->name))
+      if (trysync) // Abort merge before moving on
+        merge_abort(working_path);
+      return false;
+  }
+
+  // Print Current Status
+  std::string* status = get_status(this->toplevel_path);
+  if (status == NULL)
+    return false;
+  std::cout << "\nCurrent Status:\n" << *status << std::endl;
+  delete(status);
+
+  // Ask whether to commit these merges
+  std::cout << "\nWould you like to go ahead an commit these merges?\nTo view the differences with HEAD, type and submit \"diff\"\nOtherwise, Press Enter to continue to commit" << std::endl;
+  std::string input;
+  std::getline(std::cin, input);
+  if (input == "diff") {
+    std::string* diff = get_diff_head(this->toplevel_path);
+    if (diff != NULL) {
+      std::cout << *diff << std::endl;
+      delete(diff);
+    }
+  }
+  
+  // Otherwise, any other input will cancel the action
+  if (!input.empty())
+    return false;
+
+  // Check if anything to commit
+  std::string* diff;
+  diff = get_diff_cached(this->toplevel_path);
+  if (diff != NULL) {
+    bool diff_empty = diff->empty();
+    delete(diff);
+    if (!diff_empty)
+      // Commit merge
+      if (!commit_merge(this->toplevel_path))
+        return false;
+  }
+
+  // Push merged
+  for (const auto& remote : this->remotes) {
+    std::cout << "Pushing to " << remote->name << '/' << this->current_branch->name << std::endl;
+    if (!push_remote(this->toplevel_path, remote->name, this->current_branch->name))
+      return false;
+  }
+
+  return true;
+}

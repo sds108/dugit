@@ -20,20 +20,37 @@ struct Session {
   /*
     This struct holds all session
     specific information, e.g.
-    Git version, or recent repos.
+    Git version, or recent repos,
+    repository branches, and
+    list of remotes.
   */
 
   // Git version, this determines how git is called
   std::string git_version;
-
-  // Current Repository
-  Repository* repository;
 
   // $PPID - Parent Process ID
   std::string ppid;
 
   // Working Path
   std::string working_path;
+
+  // The local path to the repository
+  std::string toplevel_path;
+
+  // .dugit path
+  std::string dugit_path;
+
+  // .lock secured
+  bool lock_secured;
+
+  // Current branch
+  Branch* current_branch;
+
+  // List of local Branches
+  std::vector<Branch*> branches;
+
+  // List of Remotes
+  std::vector<Remote*> remotes;
 
   // Constructor Sequences
   Session();
@@ -48,51 +65,48 @@ struct Session {
   // dugit args parser
   bool args_parser(const std::vector<std::string>& args);
 
-  // Push_changes
-  bool push_session();
-
-  // Sync Session
-  bool sync_session();
-};
-
-struct Repository {
-  /*
-    This struct holds all repository
-    specific information, e.g.
-    repository branches, and
-    list of remotes.
-  */
-
-  // The local path to the repository
-  std::string toplevel_path;
-
-  // .dugit path
-  std::string dugit_path;
-
-  // Current branch
-  Branch* current_branch;
-
-  // List of local Branches
-  std::vector<Branch*> branches;
-
-  // List of Remotes
-  std::vector<Remote*> remotes;
-
-  // Constructor Sequence
-  Repository(const std::string& working_path);
-
-  // Destructor Sequence
-  ~Repository();
-  
   // Initialize Repository Sequence
   bool initialize(const std::string& working_path);
 
   // Push Changes
-  bool auto_push();
+  bool auto_push(bool trypush);
 
   // Sync Repository
-  bool sync_repository();
+  bool sync_repository(bool trysync);
 };
+
+// struct Repository {
+
+//   // The local path to the repository
+//   std::string toplevel_path;
+
+//   // .dugit path
+//   std::string dugit_path;
+
+//   // Current branch
+//   Branch* current_branch;
+
+//   // List of local Branches
+//   std::vector<Branch*> branches;
+
+//   // List of Remotes
+//   std::vector<Remote*> remotes;
+
+//   // Constructor Sequence
+//   Repository(const std::string& working_path);
+
+//   // Destructor Sequence
+//   ~Repository();
+  
+//   // Initialize Repository Sequence
+//   bool initialize(const std::string& working_path);
+
+//   // Push Changes
+//   bool auto_push();
+
+//   // Sync Repository
+//   bool sync_repository();
+// };
 
 struct Remote {
   /*
