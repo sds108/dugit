@@ -424,8 +424,8 @@ bool unstage_changes (const std::string& working_path) {
   return true;
 }
 
-// Commit Changes
-bool commit_changes (const std::string& working_path) {
+// Auto Commit Message
+std::string commit_local_message (const std::string& working_path) {
   std::time_t now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   std::tm* now_tm = std::localtime(&now_time);
   std::ostringstream oss;
@@ -433,7 +433,7 @@ bool commit_changes (const std::string& working_path) {
   std::string* diff_file_names_output = get_diff_cached_names(working_path);
   std::string diff_file_names;
   if (diff_file_names_output == NULL)
-    return false;
+    return '[' + oss.str() + "] Dugit Commit.";
   
   diff_file_names += ", Changes apply to: ";
   for (const auto& name : get_lines_from_string(*diff_file_names_output)) {
@@ -445,19 +445,7 @@ bool commit_changes (const std::string& working_path) {
     }
   } delete(diff_file_names_output);
 
-  std::vector<std::string> commands = {
-    "cd", working_path, "&&", "git", "commit", "-m", "\"[" + oss.str() + "] Dugit Commit" + diff_file_names + '\"'
-  };
-
-  std::string* command_out = execute_with_output(commands);
-  if (command_out == NULL) {
-    std::string err_msg = "commit_changes() ==> Could not commit merge at path: " + working_path + '\n';
-    perror(err_msg.c_str());
-    return false;
-  }
-
-  delete(command_out);
-  return true;
+  return '[' + oss.str() + "] Dugit Commit" + diff_file_names;
 }
 
 // Fetch Sequence
@@ -478,14 +466,18 @@ bool fetch_remote (const std::string& working_path, const std::string& remote_na
 }
 
 // Merge Sequence (No commit nor fast-forward, with autostash enabled)
-bool merge_nc_nff_a (const std::string& working_path, const std::string& remote_name, const std::string& branch_name) {
+bool merge (const std::string& working_path, const std::string& remote_name, const std::string& branch_name, const bool ff) {
   std::vector<std::string> commands = {
-    "cd", working_path, "&&", "git", "merge", "--no-commit", "--no-ff", "--autostash", remote_name + '/' + branch_name
+    "cd", working_path, "&&", "git", "merge", "--no-commit", "--autostash"
   };
+
+  if (ff) commands.push_back("--fast-forward");
+  else commands.push_back("--no-ff");
+  commands.push_back(remote_name + '/' + branch_name);
 
   std::string* command_out = execute_with_output(commands);
   if (command_out == NULL) {
-    std::string err_msg = "merge_nc_nff_a() ==> Could not merge with " + remote_name + '/' + branch_name + '\n';
+    std::string err_msg = "merge() ==> Could not merge with " + remote_name + '/' + branch_name + '\n';
     perror(err_msg.c_str());
 
     std::string* status = get_status(working_path);
@@ -628,20 +620,59 @@ std::string* get_diff_uncached (const std::string& working_path) {
 }
 
 // Git Commit
-bool commit_merge (const std::string& working_path) {
+bool commit (const std::string& working_path, const std::string& message) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "commit", "-m"
+  };
+
+  if (!message.empty()) {
+    commands.push_back(std::string('\"' + message + '\"'));
+  } else commands.push_back(std::string('\"' + "Dugit, no commit message provided." + '\"'));
+
+  std::string* command_out = execute_with_output(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "commit() ==> Could not commit at path: " + working_path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  } delete(command_out);
+  return true;
+}
+
+// Automatic Commit Message after committing sync merging
+std::string commit_sync_message () {
   std::time_t now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   std::tm* now_tm = std::localtime(&now_time);
   std::ostringstream oss;
   oss << std::put_time(now_tm, "%Y-%m-%d %H:%M:%S");
+  return '[' + oss.str() + "] Dugit Repository Sync.";
+}
+
+// Git log diff between two branches
+std::string* get_log_diff (const std::string& working_path, const std::string& branch_a, const std::string branch_b) {
   std::vector<std::string> commands = {
-    "cd", working_path, "&&", "git", "commit", "-m", "\"[" + oss.str() + "] Dugit Repository Sync.\""
+    "cd", working_path, "&&", "git", "log", branch_a + ".." + branch_b
   };
 
   std::string* command_out = execute_with_output(commands);
   if (command_out == NULL) {
-    std::string err_msg = "commit_merge() ==> Could not commit merge at path: " + working_path + '\n';
+    std::string err_msg = "get_log_diff() ==> Could not get git log " + branch_a + ".." + branch_b + " path: " + working_path + '\n';
     perror(err_msg.c_str());
-    return false;
-  } delete(command_out);
+    return NULL;
+  } return command_out;
+}
+
+std::string commit_custom_message () {
+  std::cout << "Please enter a custom commit message here: ";
+  std::string input;
+  std::cin >> input;
+  return input;
+}
+
+bool clean_commit_message (std::string& message) {
+  std::string new_message;
+  for (const auto& c : message) {
+    if (c == 34) new_message += '\\';
+    new_message += c;
+  } message = new_message;
   return true;
 }

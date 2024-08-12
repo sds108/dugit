@@ -68,45 +68,12 @@ struct Session {
   // Initialize Repository Sequence
   bool initialize(const std::string& working_path);
 
-  // Push Changes
-  bool auto_push(bool trypush);
+  // Commit Repository
+  bool commit_repository(const std::unordered_map<std::string, bool>& flags);
 
   // Sync Repository
-  bool sync_repository(bool trysync);
+  bool sync_repository(const std::unordered_map<std::string, bool>& flags);
 };
-
-// struct Repository {
-
-//   // The local path to the repository
-//   std::string toplevel_path;
-
-//   // .dugit path
-//   std::string dugit_path;
-
-//   // Current branch
-//   Branch* current_branch;
-
-//   // List of local Branches
-//   std::vector<Branch*> branches;
-
-//   // List of Remotes
-//   std::vector<Remote*> remotes;
-
-//   // Constructor Sequence
-//   Repository(const std::string& working_path);
-
-//   // Destructor Sequence
-//   ~Repository();
-  
-//   // Initialize Repository Sequence
-//   bool initialize(const std::string& working_path);
-
-//   // Push Changes
-//   bool auto_push();
-
-//   // Sync Repository
-//   bool sync_repository();
-// };
 
 struct Remote {
   /*

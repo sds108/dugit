@@ -26,8 +26,60 @@ Session::~Session () {
 
 // Print dugit help
 void print_help () {
-  std::string help_string = "usage: dugit [-v | --version] [-h | --help]\n             <command> [<args>]\n\nThese are common Dugit commands used in various situations:\n\nSync all of the remotes of a repository (see also: git add remote)\n   sync\n\nTo see git specific information see: git help";
-  std::cout << help_string << std::endl;
+  std::vector<std::string> help_string = {
+    "",
+    "usage: dugit <command> [<args>]",
+    "",
+    "\033[4;1mThese are common Dugit arguments, please use carefully:\033[0m",
+    "    --abort-merge   When merging branches, any Dugit command will automatically",
+    "                    quit if a merge conflict is detected, and leave the merge",
+    "                    conflict for the user to fix. If you want Dugit to",
+    "                    automatically abort the merge, use this flag.",
+    "",
+    "    --commit-local  When using the \"sync\" command, by default, Dugit performs an",
+    "                    --autostash so that any uncommited changes (both staged and",
+    "                    unstaged) are stashed for the duration of the syncing, and will",
+    "                    try to be reapplied (popped) back once the syncing is done.",
+    "                    If there is work that the user would like to instead first commit",
+    "                    before syncing, the user may use this flag to do so.",
+    "",
+    "    --auto-message  When committing any work or merge, by default the user will be",
+    "                    prompted to enter a custom commit message. This flag can be enabled",
+    "                    to skip this step and let Dugit make an automatic commit message.",
+    "",
+    "    --no-warning    When a Dugit command is executed, Dugit will prompt the user",
+    "                    with verification questions, giving the user a chance to stop",
+    "                    further execution of the command if desired. To skip these",
+    "                    warnings, use this flag.",
+    "",
+    "    --fast-forward  When merging, by default Dugit does not allow fast forwarding,",
+    "                    but if desired, the user may this flag to allow fast forwarding.",
+    "",
+    "",
+    "\033[4;1mThese are common Dugit commands used in various situations:\033[0m",
+    "\033[41;1mPlease read how to use flags before using commands\033[0m",
+    "",
+    "    help            Get information on how to use Dugit (this command).",
+    "",
+    "    sync    <args>  This command's main purpose sync each of the connected remotes with",
+    "                    each other, this entails fetching changes from each remote,",
+    "                    merging on the local repository, committing all of the merges,",
+    "                    and then pushing back to each remote.",
+    "",
+    "    commit  <args>  This command's main purpose is to stage and commit all local",
+    "                    changes on the local repository. This command does not push or sync",
+    "                    with the remote repositories. If you want to automatically push",
+    "                    the commit as well, look into using the \"sync\" command with the",
+    "                    \"--commit-local\" flag. (See examples at the end)",
+    "",
+    "",
+    "\033[4;1mExamples:\033[0m",
+    "",
+    "To see git specific information see: git help",
+  };
+
+  for (const auto& line : help_string)
+    std::cout << line << std::endl;
 }
 
 // dugit args parser
@@ -43,33 +95,86 @@ bool Session::args_parser (const std::vector<std::string>& args) {
     return true;
   }
 
+  // Commands
+  std::vector<std::string> commands = {
+    "help",
+    "sync",
+    "commit",
+  };
+
+  // Check commands
+  for (const auto& arg : args) {
+    bool found = false;
+    std::string err_msg = '\"' + arg + "\" command not recognized.\n";
+    if (arg.length() < 2) {
+      perror(err_msg.c_str());
+      return false;
+    }
+
+    if (arg[0] == '-' && arg[1] == '-')
+      continue;
+
+    for (const auto& command : commands) {
+      if (arg == command) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      perror(err_msg.c_str());
+      return false;
+    }
+  }
+
+  // Command flags
+  std::unordered_map<std::string, bool> flags = {
+    {"--auto-message", false},
+    {"--commit-local", false},
+    {"--abort-merge", false},
+    {"--no-warning", false},
+    {"--fast-forward", false},
+  };
+
+  // Check command flags
+  for (const auto& arg : args) {
+    bool found = false;
+    std::string err_msg = '\"' + arg + "\" flag not recognized.\n";
+    if (arg[0] == '-' || arg[1] == '-') {
+      for (auto& flag : flags) {
+        if (arg == flag.first) {
+          flag.second = true;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        perror(err_msg.c_str());
+        return false;
+      }
+    }
+  }
+
   if (args.front() == "help")
     print_help();
+  else if (args.front() == "commit") {
+    if (!this->commit_repository(flags)) {
+      std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
+      perror(err_msg.c_str());
+      return false;
+    }
+  }
   else if (args.front() == "sync") {
-    if (!this->sync_repository(false)) {
+    if (!this->sync_repository(flags)) {
       std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
       perror(err_msg.c_str());
       return false;
     }
-  } else if (args.front() == "trysync") {
-    if (!this->sync_repository(true)) {
-      std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
-      perror(err_msg.c_str());
-      return false;
-    }
-  } else if (args.front() == "push") {
-    if (!this->auto_push(false)) {
-      std::string err_msg = "fatal: Could not push changes for repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
-      perror(err_msg.c_str());
-      return false;
-    }
-  } else if (args.front() == "trypush") {
-    if (!this->auto_push(true)) {
-      std::string err_msg = "fatal: Could not push changes for repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
-      perror(err_msg.c_str());
-      return false;
-    }
-  } return true;
+  } else
+    return false;
+
+  return true;
 }
 
 // Startup Sequence
@@ -227,7 +332,7 @@ bool Session::session_startup_sequence () {
   return true;
 }
 
-bool Session::auto_push (bool trypush) {
+bool Session::commit_repository (const std::unordered_map<std::string, bool>& flags) {
   std::string* diff;
 
   // Check if any changes to stage
@@ -237,8 +342,12 @@ bool Session::auto_push (bool trypush) {
     delete(diff);
 
     // Stage Changes
-    if (!diff_empty && !stage_changes(this->toplevel_path))
-      return false;
+    if (!diff_empty) {
+      std::cout << "Staging..." << std::endl;
+      if (!stage_changes(this->toplevel_path))
+        return false;
+      std::cout << "Staging successful..." << std::endl;
+    }
   }
 
   // Check if anything to commit
@@ -248,18 +357,22 @@ bool Session::auto_push (bool trypush) {
     delete(diff);
     
     // Commit staged changes
-    if (!diff_empty && !commit_changes(this->toplevel_path))
-      return false;
+    if (!diff_empty) {
+      std::cout << "Committing..." << std::endl;
+      std::string commit_message = "";
+      if (flags.at("--auto-message")) commit_message = commit_local_message(this->toplevel_path);
+      else commit_message = commit_custom_message();
+      clean_commit_message(commit_message);
+      if (!commit(this->toplevel_path, commit_message))
+        return false;
+      std::cout << "Commit successful..." << std::endl;
+    }
   }
-
-  // Use Sync for the rest of the procedure
-  if (!this->sync_repository(trypush))
-    return false;
 
   return true;
 }
 
-bool Session::sync_repository (bool trysync) {
+bool Session::sync_repository (const std::unordered_map<std::string, bool>& flags) {
   /*
     Sync the repository on the current
     branch that is loaded.
@@ -268,52 +381,65 @@ bool Session::sync_repository (bool trysync) {
     check for possible merge conflicts.
   */
 
+  std::string* diff;
+
+  // Apply commits if enabled
+  if (flags.at("--commit-local")) {
+    if (!this->commit_repository(flags))
+      return false;
+  }
+
   // Fetch and merge
+  bool log_diff_found = false;
   for (const auto& remote : this->remotes) {
     std::cout << "Fetching from " << remote->name << '/' << this->current_branch->name << std::endl;
     if (!fetch_remote(this->toplevel_path, remote->name, this->current_branch->name)) 
       continue;
 
-    std::cout << "Merging " << remote->name << '/' << this->current_branch->name << std::endl;
-    if (!merge_nc_nff_a(this->toplevel_path, remote->name, this->current_branch->name))
-      if (trysync) // Abort merge before moving on
-        merge_abort(working_path);
+    std::string* log_diff = get_log_diff(this->toplevel_path, this->current_branch->name, remote->name + '/' + this->current_branch->name);
+    if (log_diff == NULL)
       return false;
+    
+    if (!log_diff->empty()) {
+      log_diff_found = true;
+      std::cout << "Log Difference between HEAD and " << remote->name << '/' << this->current_branch->name << ":\n" << *log_diff << std::endl;
+      delete(log_diff);
+      std::cout << "Merging " << remote->name << '/' << this->current_branch->name << std::endl;
+      if (!merge(this->toplevel_path, remote->name, this->current_branch->name, flags.at("--fast-forward"))) {
+        if (flags.at("--abort-merge")) // Abort merge before moving on
+          merge_abort(working_path);
+        return false;
+      }
+    } else delete(log_diff);
   }
-
-  // Print Current Status
-  std::string* status = get_status(this->toplevel_path);
-  if (status == NULL)
-    return false;
-  std::cout << "\nCurrent Status:\n" << *status << std::endl;
-  delete(status);
 
   // Ask whether to commit these merges
-  std::cout << "\nWould you like to go ahead an commit these merges?\nTo view the differences with HEAD, type and submit \"diff\"\nOtherwise, Press Enter to continue to commit" << std::endl;
-  std::string input;
-  std::getline(std::cin, input);
-  if (input == "diff") {
-    std::string* diff = get_diff_head(this->toplevel_path);
-    if (diff != NULL) {
-      std::cout << *diff << std::endl;
-      delete(diff);
-    }
-  }
-  
-  // Otherwise, any other input will cancel the action
-  if (!input.empty())
-    return false;
+  if (log_diff_found) {
+    // Print Current Status
+    std::string* status = get_status(this->toplevel_path);
+    if (status == NULL)
+      return false;
+    std::cout << "\nCurrent Status:\n" << *status << std::endl;
+    delete(status);
 
-  // Check if anything to commit
-  std::string* diff;
-  diff = get_diff_cached(this->toplevel_path);
-  if (diff != NULL) {
-    bool diff_empty = diff->empty();
-    delete(diff);
-    if (!diff_empty)
-      // Commit merge
-      if (!commit_merge(this->toplevel_path))
-        return false;
+    while (!flags.at("--no-warning")) {
+      std::cout << "\nWould you like to go ahead an commit these merges?\nTo view the differences with HEAD, type and submit \"diff\"\nOtherwise, Press Enter to continue to commit\nPress Ctrl+C or Ctrl+D to cancel" << std::endl;
+      std::string input;
+      std::getline(std::cin, input);
+      if (input == "diff") {
+        std::string* diff = get_diff_head(this->toplevel_path);
+        if (diff != NULL) {
+          std::cout << *diff << std::endl;
+          delete(diff);
+        }
+      }
+
+      if (input.empty()) break;
+    }
+
+    // Check if anything to commit
+    if (!this->commit_repository(flags))
+      return false;
   }
 
   // Push merged

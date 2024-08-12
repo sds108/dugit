@@ -73,20 +73,17 @@ bool stage_changes(const std::string& working_path);
 // Unstage Changes
 bool unstage_changes(const std::string& working_path);
 
-// Commit Changes
-bool commit_changes(const std::string& working_path);
-
 // Fetch Sequence
 bool fetch_remote(const std::string& working_path, const std::string& remote_name, const std::string& branch_name);
 
 // Merge Sequence (No commit nor fast-forward, with autostash enabled)
-bool merge_nc_nff_a(const std::string& working_path, const std::string& remote_name, const std::string& branch_name);
+bool merge(const std::string& working_path, const std::string& remote_name, const std::string& branch_name, const bool ff);
 
 // Abort merge
 bool merge_abort(const std::string& working_path);
 
 // Git Commit
-bool commit_merge(const std::string& working_path);
+bool commit(const std::string& working_path, const std::string& message);
 
 // Push Sequence
 bool push_remote(const std::string& working_path, const std::string& remote_name, const std::string& branch_name);
@@ -108,5 +105,20 @@ std::string* get_diff_cached_names(const std::string& working_path);
 
 // Git Diff Uncached
 std::string* get_diff_uncached(const std::string& working_path);
+
+// Git log diff between local and remote
+std::string* get_log_diff(const std::string& working_path, const std::string& branch_a, const std::string branch_b);
+
+// Automatic Commit Message after committing sync merging
+std::string commit_sync_message();
+
+// Auto Commit Message
+std::string commit_local_message(const std::string& working_path);
+
+// Custom commit message
+std::string commit_custom_message();
+
+// Clean commit message
+bool clean_commit_message(std::string& message);
 
 #endif
