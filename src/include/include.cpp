@@ -381,7 +381,7 @@ bool file_exists (const std::string& path) {
     return true;
   
   std::string err_msg = "file_exists() ==> File does not exist: " + path + '\n';
-  perror(err_msg.c_str());
+  // perror(err_msg.c_str());
   return false;
 }
 
@@ -544,4 +544,17 @@ bool check_external_dependencies (const std::vector<std::string>& dependencies) 
     perror(err_msg.c_str());
     return false;
   } return true;
+}
+
+bool response_generator (const std::string& message) {
+  std::cout << message << std::endl;
+  std::string input;
+  while (true) {
+    std::cout << "Do you accept this ('y' or 'n'):\n";
+    std::cin >> input;
+    if (input == "y" || input == "Y")
+      return true;
+    else if (input == "n" || input == "N")
+      return false;
+  } return false;
 }

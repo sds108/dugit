@@ -36,6 +36,7 @@
 #include <functional>
 #include <chrono>
 #include <iomanip>
+#include <csignal>
 
 // Useful functions
 char* get_shell();
@@ -106,5 +107,8 @@ bool remove_file(const std::string& path);
 
 // Check external dependencies
 bool check_external_dependencies(const std::vector<std::string>& dependencies);
+
+// Response generator
+bool response_generator(const std::string& message);
 
 #endif

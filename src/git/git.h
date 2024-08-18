@@ -68,7 +68,7 @@ bool set_lock_file(const std::string& path, const std::string& ppid);
 bool unset_lock_file(const std::string& path);
 
 // Stage Changes
-bool stage_changes(const std::string& working_path);
+bool stage_changes(const std::string& working_path, const bool all);
 
 // Unstage Changes
 bool unstage_changes(const std::string& working_path);
@@ -107,7 +107,7 @@ std::string* get_diff_cached_names(const std::string& working_path);
 std::string* get_diff_uncached(const std::string& working_path);
 
 // Git log diff between local and remote
-std::string* get_log_diff(const std::string& working_path, const std::string& branch_a, const std::string branch_b);
+std::string* get_log_diff(const std::string& working_path, const std::string& branch_a, const std::string& branch_b);
 
 // Automatic Commit Message after committing sync merging
 std::string commit_sync_message();
@@ -120,5 +120,23 @@ std::string commit_custom_message();
 
 // Clean commit message
 bool clean_commit_message(std::string& message);
+
+// Stash work
+bool stash(const std::string& working_path, const bool& keep_index);
+
+// Pop stashed work
+bool pop_stash(const std::string& working_path, const bool& keep_index);
+
+// Check for untracked changes
+bool check_untracked(const std::string& working_path);
+
+// Check MERGE_HEAD file
+bool check_merge_head_file(const std::string& working_path);
+
+// Check MERGE_MSG file
+bool check_merge_msg_file(const std::string& working_path);
+
+// Check MERGE_MODE file
+bool check_merge_mode_file(const std::string& working_path);
 
 #endif

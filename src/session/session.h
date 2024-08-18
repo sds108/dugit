@@ -16,6 +16,9 @@ typedef struct Repository Repository;
 typedef struct Remote Remote;
 typedef struct Branch Branch;
 
+// Release version
+const std::string dugit_version = "0.0.1";
+
 struct Session {
   /*
     This struct holds all session
@@ -43,6 +46,28 @@ struct Session {
   // .lock secured
   bool lock_secured;
 
+  // Commands
+  const std::vector<std::string> commands = {
+    "help",
+    "sync",
+    "commit",
+    "version",
+  };
+
+  // Command flags
+  std::unordered_map<std::string, bool> flags = {
+    {"--auto-message", false},
+    {"--stage-all", false},
+    {"--commit-local", false},
+    {"--abort-merge", false},
+    {"--no-warning", false},
+    {"--fast-forward", false},
+    {"--keep-index", false},
+  };
+
+  // Stashed changes
+  bool stashed_changes;
+
   // Current branch
   Branch* current_branch;
 
@@ -54,25 +79,28 @@ struct Session {
 
   // Constructor Sequences
   Session();
-  Session(const std::vector<std::string>& args);
 
   // Destructor Sequence
   ~Session();
 
   // Startup Sequence
   bool session_startup_sequence();
+  bool session_startup_sequence(const std::string path);
 
   // dugit args parser
   bool args_parser(const std::vector<std::string>& args);
 
-  // Initialize Repository Sequence
-  bool initialize(const std::string& working_path);
+  // Stash sequence
+  bool stash_repository();
 
   // Commit Repository
-  bool commit_repository(const std::unordered_map<std::string, bool>& flags);
+  bool commit_repository();
 
   // Sync Repository
-  bool sync_repository(const std::unordered_map<std::string, bool>& flags);
+  bool sync_repository();
+
+  // Clean up sequence
+  bool clean_up();
 };
 
 struct Remote {
@@ -111,5 +139,8 @@ struct Branch {
 
 // Print help menu
 void print_help();
+
+// Print dugit version
+void print_dugit_version();
 
 #endif // SESSION_H

@@ -1,20 +1,13 @@
 #include "session.h"
 
-// Constructor with args
-Session::Session (const std::vector<std::string>& args) {
-  // Perform Startup Sequence
-  if (!session_startup_sequence())
-    return;
-
-  // Execute args
-  if (args_parser(args) == false)
-    return;
+Session::Session () {
+  // Dummy method
+  return;
 }
 
 Session::~Session () {
-  // Unset lock
-  if (this->lock_secured)
-    unset_lock_file(this->dugit_path + "/.lock");
+  // Destructor sequence
+  this->clean_up();
 
   // Remove branches and remotes
   for (const auto& branch : this->branches)
@@ -24,6 +17,38 @@ Session::~Session () {
     delete(remote);
 }
 
+bool Session::clean_up () {
+  // Unset lock
+  if (this->lock_secured)
+    this->lock_secured = !unset_lock_file(this->dugit_path + "/.lock");
+
+  // Abort merge
+  if (check_merge_head_file(this->toplevel_path) ||
+  check_merge_msg_file(this->toplevel_path) ||
+  check_merge_mode_file(this->toplevel_path)) {
+    if (this->flags.at("--abort-merge")) {
+      merge_abort(this->toplevel_path);
+    } else {
+      if (this->stashed_changes) std::cout << "\033[41;1mNot popping stash, deal with merge first, or abort merge via 'git merge --abort'.\nThen pop stash via 'git stash pop' (--index to regain staged/unstaged structure)...\033[0m\n";
+      return true;
+    }
+  }
+
+  // Pop stash
+  if (this->stashed_changes) {
+    std::cout << "Popping stash..." << std::endl;
+    if (!pop_stash(this->toplevel_path, this->flags.at("--keep-index")))
+      return false;
+    this->stashed_changes = false;
+    std::cout << "Popped stash successfully..." << std::endl;
+  } return true;
+}
+
+// Print dugit version
+void print_dugit_version () {
+  std::cout << "dugit version " << dugit_version << std::endl;
+}
+ 
 // Print dugit help
 void print_help () {
   std::vector<std::string> help_string = {
@@ -35,6 +60,12 @@ void print_help () {
     "                    quit if a merge conflict is detected, and leave the merge",
     "                    conflict for the user to fix. If you want Dugit to",
     "                    automatically abort the merge, use this flag.",
+    "",
+    "    --stage-all     If you wish to stage (add) all changes made to the repository",
+    "                    including untracked changes (not yet tracked by git, if you do",
+    "                    'git status' git will tell you if you have any untracked changes),",
+    "                    you can use this flag to stage untracked changes. Otherwise, by",
+    "                    default, Dugit stages only tracked changes.",
     "",
     "    --commit-local  When using the \"sync\" command, by default, Dugit performs an",
     "                    --autostash so that any uncommited changes (both staged and",
@@ -60,6 +91,8 @@ void print_help () {
     "\033[41;1mPlease read how to use flags before using commands\033[0m",
     "",
     "    help            Get information on how to use Dugit (this command).",
+    "",
+    "    version         Use this command to get the currently installed version of dugit.",
     "",
     "    sync    <args>  This command's main purpose sync each of the connected remotes with",
     "                    each other, this entails fetching changes from each remote,",
@@ -95,13 +128,6 @@ bool Session::args_parser (const std::vector<std::string>& args) {
     return true;
   }
 
-  // Commands
-  std::vector<std::string> commands = {
-    "help",
-    "sync",
-    "commit",
-  };
-
   // Check commands
   for (const auto& arg : args) {
     bool found = false;
@@ -114,7 +140,7 @@ bool Session::args_parser (const std::vector<std::string>& args) {
     if (arg[0] == '-' && arg[1] == '-')
       continue;
 
-    for (const auto& command : commands) {
+    for (const auto& command : this->commands) {
       if (arg == command) {
         found = true;
         break;
@@ -127,21 +153,12 @@ bool Session::args_parser (const std::vector<std::string>& args) {
     }
   }
 
-  // Command flags
-  std::unordered_map<std::string, bool> flags = {
-    {"--auto-message", false},
-    {"--commit-local", false},
-    {"--abort-merge", false},
-    {"--no-warning", false},
-    {"--fast-forward", false},
-  };
-
   // Check command flags
   for (const auto& arg : args) {
     bool found = false;
     std::string err_msg = '\"' + arg + "\" flag not recognized.\n";
     if (arg[0] == '-' || arg[1] == '-') {
-      for (auto& flag : flags) {
+      for (auto& flag : this->flags) {
         if (arg == flag.first) {
           flag.second = true;
           found = true;
@@ -158,15 +175,17 @@ bool Session::args_parser (const std::vector<std::string>& args) {
 
   if (args.front() == "help")
     print_help();
+  else if (args.front() == "version")
+    print_dugit_version();
   else if (args.front() == "commit") {
-    if (!this->commit_repository(flags)) {
+    if (!this->commit_repository()) {
       std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
       perror(err_msg.c_str());
       return false;
     }
   }
   else if (args.front() == "sync") {
-    if (!this->sync_repository(flags)) {
+    if (!this->sync_repository()) {
       std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
       perror(err_msg.c_str());
       return false;
@@ -177,10 +196,18 @@ bool Session::args_parser (const std::vector<std::string>& args) {
   return true;
 }
 
-// Startup Sequence
+// No override startup sequence
 bool Session::session_startup_sequence () {
+  return this->session_startup_sequence("");
+}
+
+// Startup Sequence
+bool Session::session_startup_sequence (const std::string path) {
   // Set lock secured status
   this->lock_secured = false;
+
+  // Set stashed changes status
+  this->stashed_changes = false;
 
   // Check dugit dependencies
   if (!check_dugit_external_dependencies())
@@ -202,13 +229,19 @@ bool Session::session_startup_sequence () {
   this->ppid =*ppid;
   delete(ppid);
 
-  // Set Working Path
-  std::string* working_path = get_cwd();
-  if (working_path == NULL)
-    return false;
-  
-  this->working_path = *working_path;
-  delete(working_path);
+  // Set Working Path (check path override)
+  if (!path.empty()) {
+    if (!dir_exists(path))
+      return false;
+    this->working_path = path;
+  } else {
+    std::string* working_path = get_cwd();
+    if (working_path == NULL)
+      return false;
+    
+    this->working_path = *working_path;
+    delete(working_path);
+  }
 
   // Check if inside git repository
   if (!is_inside_working_tree(this->working_path))
@@ -332,8 +365,20 @@ bool Session::session_startup_sequence () {
   return true;
 }
 
-bool Session::commit_repository (const std::unordered_map<std::string, bool>& flags) {
+bool Session::commit_repository () {
   std::string* diff;
+
+  // Check if any untracked changes
+  if (check_untracked(this->toplevel_path)) {
+    if (!this->flags.at("--no-warning")) {
+      diff = get_status(this->toplevel_path);
+      if (diff != NULL) {
+        std::cout << std::endl << *diff << std::endl;
+        delete(diff);
+        this->flags.at("--stage-all") = response_generator("There are untracked changes in your repository.\nWould you like to stage (add) these untracked changes to your next commit?");
+      }
+    }
+  } diff = NULL;
 
   // Check if any changes to stage
   diff = get_diff_uncached(this->toplevel_path);
@@ -344,11 +389,11 @@ bool Session::commit_repository (const std::unordered_map<std::string, bool>& fl
     // Stage Changes
     if (!diff_empty) {
       std::cout << "Staging..." << std::endl;
-      if (!stage_changes(this->toplevel_path))
+      if (!stage_changes(this->toplevel_path, this->flags.at("--stage-all")))
         return false;
       std::cout << "Staging successful..." << std::endl;
     }
-  }
+  } diff = NULL;
 
   // Check if anything to commit
   diff = get_diff_cached(this->toplevel_path);
@@ -360,7 +405,8 @@ bool Session::commit_repository (const std::unordered_map<std::string, bool>& fl
     if (!diff_empty) {
       std::cout << "Committing..." << std::endl;
       std::string commit_message = "";
-      if (flags.at("--auto-message")) commit_message = commit_local_message(this->toplevel_path);
+      if (this->flags.at("--auto-message"))
+        commit_message = commit_local_message(this->toplevel_path);
       else commit_message = commit_custom_message();
       clean_commit_message(commit_message);
       if (!commit(this->toplevel_path, commit_message))
@@ -372,7 +418,48 @@ bool Session::commit_repository (const std::unordered_map<std::string, bool>& fl
   return true;
 }
 
-bool Session::sync_repository (const std::unordered_map<std::string, bool>& flags) {
+// Stash sequence
+bool Session::stash_repository () {
+  // Check if in the middle of a merge right now
+  std::string* diff[2];
+  std::string* status;
+  bool diff_found = false;
+
+  diff[0] = get_diff_uncached(this->toplevel_path);
+  if (diff[0] == NULL) return false;
+  if (!diff[0]->empty()) diff_found = true;
+  delete(diff[0]);
+  
+  diff[1] = get_diff_cached(this->toplevel_path);
+  if (diff[1] == NULL) return false;
+  if (!diff[1]->empty()) diff_found = true;
+  delete(diff[1]);
+
+  status = get_status(this->toplevel_path);
+  if (status == NULL) return false;
+
+  if (diff_found) {
+    if (check_merge_head_file(this->toplevel_path) ||
+    check_merge_msg_file(this->toplevel_path) ||
+    check_merge_mode_file(this->toplevel_path)) {
+      if (!this->flags.at("--no-warning")) {
+        std::cout << std::endl << *status << std::endl;
+        this->flags.at("--commit-local") = response_generator("You are currently inside a merge operation that has yet to be committed.\nWould you like to commit these merge changes?");
+      }
+    } if (status != NULL) delete(status); status = NULL;
+
+    if (!this->flags.at("--commit-local")) {
+      std::cout << "Stashing..." << std::endl;
+      if (!stash(this->toplevel_path, this->flags.at("--keep-index")))
+        return false;
+      this->stashed_changes = true;
+      std::cout << "Stashing successful..." << std::endl;
+    }
+  } if (status != NULL) delete(status); status = NULL;
+  return true;
+}
+
+bool Session::sync_repository () {
   /*
     Sync the repository on the current
     branch that is loaded.
@@ -384,10 +471,11 @@ bool Session::sync_repository (const std::unordered_map<std::string, bool>& flag
   std::string* diff;
 
   // Apply commits if enabled
-  if (flags.at("--commit-local")) {
-    if (!this->commit_repository(flags))
+  if (this->flags.at("--commit-local")) {
+    if (!this->commit_repository())
       return false;
-  }
+  } else if (!this->stash_repository())
+    return false;
 
   // Fetch and merge
   bool log_diff_found = false;
@@ -405,48 +493,49 @@ bool Session::sync_repository (const std::unordered_map<std::string, bool>& flag
       std::cout << "Log Difference between HEAD and " << remote->name << '/' << this->current_branch->name << ":\n" << *log_diff << std::endl;
       delete(log_diff);
       std::cout << "Merging " << remote->name << '/' << this->current_branch->name << std::endl;
-      if (!merge(this->toplevel_path, remote->name, this->current_branch->name, flags.at("--fast-forward"))) {
-        if (flags.at("--abort-merge")) // Abort merge before moving on
-          merge_abort(working_path);
+      if (!merge(this->toplevel_path, remote->name, this->current_branch->name, this->flags.at("--fast-forward")))
         return false;
-      }
-    } else delete(log_diff);
+    } else {
+      delete(log_diff);
+      std::cout << "Nothing to merge from " << remote->name << '/' << this->current_branch->name << std::endl;
+    }
   }
 
   // Ask whether to commit these merges
-  if (log_diff_found) {
+  if (log_diff_found ||
+  check_merge_head_file(this->toplevel_path) ||
+  check_merge_msg_file(this->toplevel_path) ||
+  check_merge_mode_file(this->toplevel_path)) {
     // Print Current Status
     std::string* status = get_status(this->toplevel_path);
     if (status == NULL)
       return false;
     std::cout << "\nCurrent Status:\n" << *status << std::endl;
-    delete(status);
-
-    while (!flags.at("--no-warning")) {
-      std::cout << "\nWould you like to go ahead an commit these merges?\nTo view the differences with HEAD, type and submit \"diff\"\nOtherwise, Press Enter to continue to commit\nPress Ctrl+C or Ctrl+D to cancel" << std::endl;
-      std::string input;
-      std::getline(std::cin, input);
-      if (input == "diff") {
-        std::string* diff = get_diff_head(this->toplevel_path);
-        if (diff != NULL) {
-          std::cout << *diff << std::endl;
-          delete(diff);
-        }
-      }
-
-      if (input.empty()) break;
-    }
+    delete(status); status = NULL;
+    if (!this->flags.at("--no-warning") &&
+    !response_generator("\nWould you like to go ahead an commit these merges?"))
+      return true;
 
     // Check if anything to commit
-    if (!this->commit_repository(flags))
+    if (!this->commit_repository())
       return false;
   }
 
-  // Push merged
+  // Push merged to where necessary
   for (const auto& remote : this->remotes) {
-    std::cout << "Pushing to " << remote->name << '/' << this->current_branch->name << std::endl;
-    if (!push_remote(this->toplevel_path, remote->name, this->current_branch->name))
+    std::string* log_diff = get_log_diff(this->toplevel_path, remote->name + '/' + this->current_branch->name, this->current_branch->name);
+    if (log_diff == NULL)
       return false;
+    
+    if (!log_diff->empty()) {
+      delete(log_diff);
+      std::cout << "Pushing to " << remote->name << '/' << this->current_branch->name << std::endl;
+      if (!push_remote(this->toplevel_path, remote->name, this->current_branch->name))
+        return false;
+    } else {
+      delete(log_diff);
+      std::cout << "Nothing to push to " << remote->name << '/' << this->current_branch->name << std::endl;
+    }
   }
 
   return true;

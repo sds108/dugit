@@ -388,10 +388,13 @@ bool unset_lock_file (const std::string& path) {
 }
 
 // Stage Changes
-bool stage_changes (const std::string& working_path) {
+bool stage_changes (const std::string& working_path, const bool all) {
   std::vector<std::string> commands = {
-    "cd", working_path, "&&", "git", "add", "."
+    "cd", working_path, "&&", "git", "add"
   };
+
+  if (all) commands.push_back(".");
+  else commands.push_back("-u");
 
   std::string* command_out = execute_with_output(commands);
   if (command_out == NULL) {
@@ -468,7 +471,7 @@ bool fetch_remote (const std::string& working_path, const std::string& remote_na
 // Merge Sequence (No commit nor fast-forward, with autostash enabled)
 bool merge (const std::string& working_path, const std::string& remote_name, const std::string& branch_name, const bool ff) {
   std::vector<std::string> commands = {
-    "cd", working_path, "&&", "git", "merge", "--no-commit", "--autostash"
+    "cd", working_path, "&&", "git", "merge", "--no-commit" //, "--autostash"
   };
 
   if (ff) commands.push_back("--fast-forward");
@@ -648,7 +651,7 @@ std::string commit_sync_message () {
 }
 
 // Git log diff between two branches
-std::string* get_log_diff (const std::string& working_path, const std::string& branch_a, const std::string branch_b) {
+std::string* get_log_diff (const std::string& working_path, const std::string& branch_a, const std::string& branch_b) {
   std::vector<std::string> commands = {
     "cd", working_path, "&&", "git", "log", branch_a + ".." + branch_b
   };
@@ -675,4 +678,75 @@ bool clean_commit_message (std::string& message) {
     new_message += c;
   } message = new_message;
   return true;
+}
+
+// Stash all changes
+bool stash (const std::string& working_path, const bool& keep_index) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "stash"
+  };
+
+  if (keep_index)
+    commands.push_back("--keep-index");
+
+  std::string* command_out = execute_with_output(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "stash() ==> Could not stash changes at path: " + working_path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  } delete(command_out);
+  return true;
+}
+
+// Pop stash
+bool pop_stash (const std::string& working_path, const bool& keep_index) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "stash", "pop"
+  };
+
+  if (keep_index)
+    commands.push_back("--index");
+
+  std::string* command_out = execute_with_output(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "pop_stash() ==> Could not pop stash changes at path: " + working_path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  } delete(command_out);
+  return true;
+}
+
+// Check for untracked files
+bool check_untracked (const std::string& working_path) {
+  std::vector<std::string> commands = {
+    "cd", working_path, "&&", "git", "ls-files", "--others", "--exclude-standard"
+  };
+
+  std::string* command_out = execute_with_output(commands);
+  if (command_out == NULL) {
+    std::string err_msg = "check_untracked() ==> Could not check untracked files at path: " + working_path + '\n';
+    perror(err_msg.c_str());
+    return false;
+  }
+
+  if (!command_out->empty()) {
+    delete(command_out);
+    return true;
+  } delete(command_out);
+  return false;
+}
+
+// Check MERGE_HEAD file
+bool check_merge_head_file (const std::string& working_path) {
+  return file_exists(working_path + "/.git/MERGE_HEAD");
+}
+
+// Check MERGE_MSG file
+bool check_merge_msg_file (const std::string& working_path) {
+  return file_exists(working_path + "/.git/MERGE_MSG");
+}
+
+// Check MERGE_MODE file
+bool check_merge_mode_file (const std::string& working_path) {
+  return file_exists(working_path + "/.git/MERGE_MODE");
 }
