@@ -551,7 +551,7 @@ bool response_generator (const std::string& message) {
   std::string input;
   while (true) {
     std::cout << "Do you accept this ('y' or 'n'):\n";
-    std::cin >> input;
+    std::getline(std::cin, input);
     if (input == "y" || input == "Y")
       return true;
     else if (input == "n" || input == "N")

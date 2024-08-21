@@ -17,7 +17,7 @@ typedef struct Remote Remote;
 typedef struct Branch Branch;
 
 // Release version
-const std::string dugit_version = "0.0.1";
+const std::string dugit_version = "0.0.2";
 
 struct Session {
   /*
@@ -52,13 +52,14 @@ struct Session {
     "sync",
     "commit",
     "version",
+    "examples",
   };
 
   // Command flags
   std::unordered_map<std::string, bool> flags = {
     {"--auto-message", false},
     {"--stage-all", false},
-    {"--commit-local", false},
+    {"--commit", false},
     {"--abort-merge", false},
     {"--no-warning", false},
     {"--fast-forward", false},
@@ -130,8 +131,8 @@ struct Branch {
   // Branch name
   std::string name;
 
-  // Is it remote
-  bool is_remote;
+  // List of Remotes this branch is on
+  std::vector<Remote*> remotes;
 
   // Is it local
   bool is_local;
@@ -142,5 +143,8 @@ void print_help();
 
 // Print dugit version
 void print_dugit_version();
+
+// Print examples of usage
+void print_usage_examples();
 
 #endif // SESSION_H

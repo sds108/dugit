@@ -67,8 +67,8 @@ void print_help () {
     "                    you can use this flag to stage untracked changes. Otherwise, by",
     "                    default, Dugit stages only tracked changes.",
     "",
-    "    --commit-local  When using the \"sync\" command, by default, Dugit performs an",
-    "                    --autostash so that any uncommited changes (both staged and",
+    "    --commit        When using the \"sync\" command, by default, Dugit performs an",
+    "                    automatic stash so that any uncommited changes (both staged and",
     "                    unstaged) are stashed for the duration of the syncing, and will",
     "                    try to be reapplied (popped) back once the syncing is done.",
     "                    If there is work that the user would like to instead first commit",
@@ -92,6 +92,8 @@ void print_help () {
     "",
     "    help            Get information on how to use Dugit (this command).",
     "",
+    "    examples        Get examples of usage.",
+    "",
     "    version         Use this command to get the currently installed version of dugit.",
     "",
     "    sync    <args>  This command's main purpose sync each of the connected remotes with",
@@ -103,12 +105,90 @@ void print_help () {
     "                    changes on the local repository. This command does not push or sync",
     "                    with the remote repositories. If you want to automatically push",
     "                    the commit as well, look into using the \"sync\" command with the",
-    "                    \"--commit-local\" flag. (See examples at the end)",
+    "                    \"--commit\" flag. (See examples at the end)",
     "",
-    "",
-    "\033[4;1mExamples:\033[0m",
     "",
     "To see git specific information see: git help",
+  };
+
+  for (const auto& line : help_string)
+    std::cout << line << std::endl;
+}
+
+// Print examples of usage
+void print_usage_examples () {
+  std::vector<std::string> help_string = {
+    "\033[4;1mExample Usage\033[0m",
+    "",
+    "To find out the installed version of dugit, one can use the following command.",
+    "    dugit version",
+    "",
+    "If one is stuck and does not know how to use dugit, the same information as displayed",
+    "in this README will be printed to one's command-line via this command.",
+    "    dugit help",
+    "",
+    "\033[4;1mCommitting\033[0m",
+    "Commit only tracked changes. The user will be asked whether they want to ingnore",
+    "the untracked changes.",
+    "    dugit commit",
+    "",
+    "Commit only tracked changes, and avoid the untracked changes warning.",
+    "    dugit commit --no-warning",
+    "",
+    "Commit only tracked changes, avoid the untracked changes warning, and generate an",
+    "automatic commit message. This is the quickest way to commit your work.",
+    "    dugit commit --no-warning --auto-message",
+    "",
+    "Commit everything, including untracked changes.",
+    "    dugit commit --stage-all",
+    "",
+    "Commit everything, including untracked changes, with an automatic message.",
+    "This is the fastest way to commit all of your changes.",
+    "    dugit commit --stage-all --auto-message",
+    "",
+    "\033[41;1mNotice, using '--no-warning' when '--stage-all' is enabled with the 'commit' command\033[0m",
+    "\033[41;1mdoes nothing, as the only warning one may get while committing is to check whether\033[0m",
+    "\033[41;1mone indeed wants to not stage the untrackted changes within the repository.\033[0m",
+    "",
+    "\033[4;1mSyncing\033[0m",
+    "The simplest way to sync one's local and remote repositories",
+    "(without committing one's un-committed local changes) is to use the `sync` command in its simplest form.",
+    "This process stashes any local un-committed changes, fetches changes from each remote repository",
+    "connected, attempts to merge these remote changes into the local repository, and commits all of",
+    "the merges. After this, the local merge of all remote repositories is pushed back to each remote repository,",
+    "and at the end, any un-committed changes that were stashed earlier are popped back.",
+    "    dugit sync",
+    "",
+    "\033[41;1mNotice, any flags used for committing will apply to committing of the merges at the end.\033[0m",
+    "\033[41;1mIf using '--auto-message', an automatic merge commit message will be generated.\033[0m",
+    "\033[41;1mIf not using '--no-warning' you will be asked about any untracked changes and whether you would like\033[0m",
+    "\033[41;1mto stage them. If you use the '--stage-all' flag, **untracked changes will be automatically\033[0m",
+    "\033[41;1madded to your merge commit**, this will have to be fixed in later patches.\033[0m",
+    "",
+    "If the user would like to fast forward merge, this can be enabled simply with the following.",
+    "    dugit sync --fast-forward",
+    "",
+    "If the user would like to abort if any of the merges fail, this can be done using the following command.",
+    "Here, the merge will be aborted, and dugit will attempt to pop back any stashed changes.",
+    "    dugit sync --abort-merge",
+    "",
+    "If the user would like to commit local un-committed changes (staged and unstage),",
+    "the latter can be achieved via the following command.",
+    "    dugit sync --commit",
+    "",
+    "\033[41;1mNotice, any flags used for committing will apply to both committing of the local changes,\033[0m",
+    "\033[41;1mand committing of the merges at the end. If using '--auto-message', an automatic merge commit\033[0m",
+    "\033[41;1mmessage will be generated when committing merges. If not using '--no-warning' you will once\033[0m",
+    "\033[41;1magain be asked about any untracked changes and whether you would like to stage them.\033[0m",
+    "",
+    "One can use all of the flags mentioned for committing in the latter section with the 'sync' command",
+    "in the same way. Having read the previous sections, one should understand what happens",
+    "in each combination of each flag."
+    "    dugit sync --commit --stage-all",
+    "    dugit sync --commit --stage-all --abort-merge",
+    "    dugit sync --commit --stage-all --abort-merge --auto-message",
+    "    dugit sync --commit --stage-all --abort-merge --auto-message --no-warning",
+    "    dugit sync --commit --stage-all --abort-merge --auto-message --no-warning --fast-forward",
   };
 
   for (const auto& line : help_string)
@@ -177,6 +257,8 @@ bool Session::args_parser (const std::vector<std::string>& args) {
     print_help();
   else if (args.front() == "version")
     print_dugit_version();
+  else if (args.front() == "examples")
+    print_usage_examples();
   else if (args.front() == "commit") {
     if (!this->commit_repository()) {
       std::string err_msg = "fatal: Could not sync repository at " + this->toplevel_path + "\nCheck your git status for more information: git status";
@@ -288,7 +370,7 @@ bool Session::session_startup_sequence (const std::string path) {
     Branch* new_branch = new Branch;
     new_branch->name = local_branch_names.at(branch);
     new_branch->is_local = true;
-    new_branch->is_remote = false;
+    new_branch->remotes = {};
     this->branches.push_back(new_branch);
   } delete(local_branch_names_str);
 
@@ -329,7 +411,7 @@ bool Session::session_startup_sequence (const std::string path) {
       bool found = false;
       for (const auto& local_branch : this->branches) {
         if (remote_branch_name == local_branch->name) {
-          local_branch->is_remote = true;
+          local_branch->remotes.push_back(this->remotes.at(remote));
           found = true;
           break;
         }
@@ -338,7 +420,7 @@ bool Session::session_startup_sequence (const std::string path) {
         Branch* new_branch = new Branch;
         new_branch->name = remote_branch_name;
         new_branch->is_local = false;
-        new_branch->is_remote = true;
+        new_branch->remotes = {this->remotes.at(remote)};
         this->branches.push_back(new_branch);
       }
     } delete(remote_branch_names_str);
@@ -444,11 +526,11 @@ bool Session::stash_repository () {
     check_merge_mode_file(this->toplevel_path)) {
       if (!this->flags.at("--no-warning")) {
         std::cout << std::endl << *status << std::endl;
-        this->flags.at("--commit-local") = response_generator("You are currently inside a merge operation that has yet to be committed.\nWould you like to commit these merge changes?");
+        this->flags.at("--commit") = response_generator("You are currently inside a merge operation that has yet to be committed.\nWould you like to commit these merge changes?");
       }
     } if (status != NULL) delete(status); status = NULL;
 
-    if (!this->flags.at("--commit-local")) {
+    if (!this->flags.at("--commit")) {
       std::cout << "Stashing..." << std::endl;
       if (!stash(this->toplevel_path, this->flags.at("--keep-index")))
         return false;
@@ -471,15 +553,15 @@ bool Session::sync_repository () {
   std::string* diff;
 
   // Apply commits if enabled
-  if (this->flags.at("--commit-local")) {
+  if (this->flags.at("--commit")) {
     if (!this->commit_repository())
       return false;
   } else if (!this->stash_repository())
     return false;
 
-  // Fetch and merge
+  // Fetch and merge from remote repositories that have the currently selected branch
   bool log_diff_found = false;
-  for (const auto& remote : this->remotes) {
+  for (const auto& remote : this->current_branch->remotes) {
     std::cout << "Fetching from " << remote->name << '/' << this->current_branch->name << std::endl;
     if (!fetch_remote(this->toplevel_path, remote->name, this->current_branch->name)) 
       continue;
@@ -523,9 +605,14 @@ bool Session::sync_repository () {
 
   // Push merged to where necessary
   for (const auto& remote : this->remotes) {
-    std::string* log_diff = get_log_diff(this->toplevel_path, remote->name + '/' + this->current_branch->name, this->current_branch->name);
-    if (log_diff == NULL)
-      return false;
+    std::string* log_diff;
+    if (!this->current_branch->remotes.empty() &&
+    std::find(this->current_branch->remotes.begin(), this->current_branch->remotes.end(), remote) != this->current_branch->remotes.end()) {
+      // Do this check only if the branch exists on the remote
+      log_diff = get_log_diff(this->toplevel_path, remote->name + '/' + this->current_branch->name, this->current_branch->name);
+      if (log_diff == NULL)
+        return false;
+    } else log_diff = new std::string("branch not in repository");
     
     if (!log_diff->empty()) {
       delete(log_diff);

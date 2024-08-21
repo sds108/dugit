@@ -667,7 +667,7 @@ std::string* get_log_diff (const std::string& working_path, const std::string& b
 std::string commit_custom_message () {
   std::cout << "Please enter a custom commit message here: ";
   std::string input;
-  std::cin >> input;
+  std::getline(std::cin, input);
   return input;
 }
 
